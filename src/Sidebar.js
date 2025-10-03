@@ -7,6 +7,7 @@ export default function createSidebar(containerId = "sidebar") {
   const sidebar = document.getElementById(containerId);
   const model = createModel();
 
+  let previousHighlightedId = null;
   // 스타일 초기화
   function initStyle() {
     sidebar.style.position = "absolute";
@@ -54,7 +55,7 @@ export default function createSidebar(containerId = "sidebar") {
         // 색상 선택기 생성
         const colorInput = document.createElement("input");
         colorInput.type = "color";
-        colorInput.value = child.material.color; // 초기 색상, 필요하면 child.material.color에서 가져오기
+        colorInput.value = `#${child.material.color.getHexString()}`;
         colorInput.style.marginLeft = "8px";
 
         colorInput.addEventListener("input", () => {
@@ -74,6 +75,7 @@ export default function createSidebar(containerId = "sidebar") {
         li.addEventListener("mousemove", () => {
           meshUseStore.getState().setHoveredMesh(child.uuid);
           model.highlightObjects();
+          highlightLiColor();
         });
 
         // li.addEventListener("mouseleave", () => {
@@ -94,9 +96,29 @@ export default function createSidebar(containerId = "sidebar") {
 
   initStyle();
 
+  function highlightLiColor() {
+    const {highlightedMeshIdx} = meshUseStore.getState();
+
+    // 이전 li 복원
+    if (previousHighlightedId && previousHighlightedId !== highlightedMeshIdx) {
+      const prevLi = document.getElementById(previousHighlightedId);
+      if (prevLi) prevLi.style.backgroundColor = "transparent"; // 기본색 복원
+    }
+
+    // 현재 li 색 변경
+    const li = document.getElementById(highlightedMeshIdx);
+    if (li) {
+      li.style.backgroundColor = "rgba(109, 109, 109, 0.5)";
+    }
+
+    // 현재 id 기억
+    previousHighlightedId = highlightedMeshIdx;
+  }
+
   return {
     update,
     clear,
+    highlightLiColor,
     element: sidebar,
   };
 }

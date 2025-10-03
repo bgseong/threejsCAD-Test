@@ -32,7 +32,7 @@ function init() {
   model = createModel();
 
   window.addEventListener('resize', onWindowResize);
-
+sidebar = createSidebar();
   renderer.domElement.addEventListener('mousemove', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -40,15 +40,21 @@ function init() {
     const intersects = raycaster.intersectObjects(scene.children, true);
     meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
     model.highlightObjects();
+    sidebar.highlightLiColor();
+
+
+    
+    
     
   });
-  sidebar = createSidebar();
+  
 
 
   renderer.domElement.addEventListener("click", () => {
   const { highlightedMeshIdx } = meshUseStore.getState();
   if (highlightedMeshIdx) {
     model.selectMesh(highlightedMeshIdx);
+    
   }
   });
   // 우클릭 메뉴
