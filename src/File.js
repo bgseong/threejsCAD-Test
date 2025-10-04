@@ -73,21 +73,42 @@ export default function createModelLoader() {
   }
 
   // GLB 파일로 저장
-  function saveGLB(filename = "model.glb") {
-    if (!currentModel) return console.warn("저장할 모델이 없습니다.");
+function saveGLB(filename = "model.glb") {
+  if (!currentModel) return console.warn("저장할 모델이 없습니다.");
 
-    const exporter = new GLTFExporter();
-    exporter.parse(
-      currentModel,
-      (result) => {
-        const blob = result instanceof ArrayBuffer
-          ? new Blob([result], { type: 'application/octet-stream' })
-          : new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-        saveAs(blob, filename);
-      },
-      { binary: true } // GLB 저장
-    );
-  }
+  const modifiedMeshes = [];
+
+  // 1️⃣ emissive 색상 초기화 (currentHex 기준)
+  currentModel.traverse((child) => {
+    if (child.isMesh && child.material && child.material.emissive) {
+      modifiedMeshes.push({
+        mesh: child,
+        emissiveHex: child.material.emissive.getHex() // 저장 후 복원용
+      });
+      child.material.emissive.setHex(child.currentHex ?? 0x000000); // 저장용 초기화
+    }
+  });
+
+  // 2️⃣ GLB 저장
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    currentModel,
+    (result) => {
+      const blob = result instanceof ArrayBuffer
+        ? new Blob([result], { type: 'application/octet-stream' })
+        : new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+
+      saveAs(blob, filename);
+
+      // 3️⃣ 원래 화면 상태로 복원
+      modifiedMeshes.forEach(({ mesh, emissiveHex }) => {
+        mesh.material.emissive.setHex(emissiveHex);
+      });
+    },
+    { binary: true } // GLB 저장
+  );
+}
+
 
   return {
     load,
