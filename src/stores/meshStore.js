@@ -1,6 +1,7 @@
 import { createStore } from 'zustand/vanilla';
+import { subscribeWithSelector } from "zustand/middleware";
 
-export const meshUseStore =  createStore((set) => ({
+export const meshUseStore =  createStore(subscribeWithSelector((set) => ({
   meshs: {},           
   selectedMeshIdx: null,
   highlightedMeshIdx: null,
@@ -21,6 +22,6 @@ export const meshUseStore =  createStore((set) => ({
     },
   removeMesh: (mesh) => set(state => ({ meshs: state.meshs.filter(m => m !== mesh) })),
   
-}));
+})));
 
 

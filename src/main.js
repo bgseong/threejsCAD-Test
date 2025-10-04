@@ -39,16 +39,10 @@ sidebar = createSidebar();
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
     meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
-    model.highlightObjects();
-    sidebar.highlightLiColor();
-
-
-    
-    
+    // model.highlightObjects();
+    // sidebar.highlightLiColor();
     
   });
-  
-
 
   renderer.domElement.addEventListener("click", () => {
   const { highlightedMeshIdx } = meshUseStore.getState();
@@ -59,6 +53,27 @@ sidebar = createSidebar();
   });
   // 우클릭 메뉴
   initContextMenu();
+
+  initSub();
+
+}
+
+function initSub(){
+  meshUseStore.subscribe(
+  (state) => state.hoveredMeshIdx,  // 관찰할 상태
+  (hoveredMeshIdx) => {
+    model.highlightObjects();
+    sidebar.highlightLiColor();
+  });
+
+    meshUseStore.subscribe(
+  (state) => state.selectedMeshIdx,  // 관찰할 상태
+  (current, previous) => {
+    model.selectMesh(current,previous);
+    sidebar.highlightLiColor();
+  });
+
+
 
 }
 

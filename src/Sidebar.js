@@ -74,8 +74,8 @@ export default function createSidebar(containerId = "sidebar") {
         // Hover 이벤트
         li.addEventListener("mousemove", () => {
           meshUseStore.getState().setHoveredMesh(child.uuid);
-          model.highlightObjects();
-          highlightLiColor();
+          // model.highlightObjects();
+          // highlightLiColor();
         });
 
         // li.addEventListener("mouseleave", () => {

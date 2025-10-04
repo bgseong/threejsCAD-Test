@@ -32,23 +32,33 @@ export default function createModel() {
       }
   }
 
-function selectMesh(meshIdx) {
-  const { selectedMeshIdx, setSelectedMesh, highlightedMeshIdx, setHighlightedMesh,  meshs} = meshUseStore.getState();
-  const highlightedMesh = meshs[highlightedMeshIdx];
-  const selectedMesh = meshs[selectedMeshIdx];
-  const mesh = meshs[meshIdx];
-  // 이전 선택 초기화
-  if (selectedMesh && selectedMesh !== mesh) {
-    selectedMesh.material.emissive.setHex(selectedMesh.currentHex);
-  }
-  if (mesh) {
-    mesh.material.emissive.setHex(mixGreenAndBrighten(mesh.material.emissive.getHex).toString(16)); // 초록색 선택
-    setSelectedMesh(meshIdx);
+function selectMesh(current, previous) {
+  const {
+    meshs,
+    setSelectedMesh,
+    setHighlightedMesh,
+  } = meshUseStore.getState();
 
-    // 클릭 후 하이라이트 초기화
-    if (highlightedMesh === mesh) setHighlightedMesh(null);
+  const currentMesh = meshs[current];
+  const previousMesh = meshs[previous];
+
+  // 🔹 이전 선택 복원
+  if (previousMesh && previousMesh !== currentMesh) {
+    if (previousMesh.material && previousMesh.material.emissive) {
+      previousMesh.material.emissive.setHex(previousMesh.currentHex ?? 0x000000);
+    }
+  }
+
+  // 🔹 현재 선택 강조
+  if (currentMesh) {
+    if (currentMesh.material && currentMesh.material.emissive) {
+      const brightGreen = mixGreenAndBrighten(currentMesh.material.emissive.getHex());
+      currentMesh.material.emissive.setHex(brightGreen);
+    }
+    setSelectedMesh(current); // 현재 선택 인덱스 저장
+    setHighlightedMesh(null); // 하이라이트 해제
   } else {
-    setSelectedMesh(null);
+    setSelectedMesh(null); // 선택 없을 때 초기화
   }
 }
 
