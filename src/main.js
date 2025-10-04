@@ -70,7 +70,7 @@ function initSub(){
   (state) => state.selectedMeshIdx,  // 관찰할 상태
   (current, previous) => {
     model.selectMesh(current,previous);
-    sidebar.highlightLiColor();
+    sidebar.selectLiMesh(current,previous);
   });
 
 

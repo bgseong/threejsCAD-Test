@@ -97,28 +97,53 @@ export default function createSidebar(containerId = "sidebar") {
   initStyle();
 
   function highlightLiColor() {
-    const {highlightedMeshIdx} = meshUseStore.getState();
+    const { highlightedMeshIdx, selectedMeshIdx } = meshUseStore.getState();
 
-    // 이전 li 복원
+    // 1️⃣ 이전 hover li 복원 (단, 선택된 li는 건드리지 않음)
     if (previousHighlightedId && previousHighlightedId !== highlightedMeshIdx) {
-      const prevLi = document.getElementById(previousHighlightedId);
-      if (prevLi) prevLi.style.backgroundColor = "transparent"; // 기본색 복원
+      if (previousHighlightedId !== selectedMeshIdx) {
+        const prevLi = document.getElementById(previousHighlightedId);
+        if (prevLi) prevLi.style.backgroundColor = "transparent";
+      }
     }
 
-    // 현재 li 색 변경
-    const li = document.getElementById(highlightedMeshIdx);
-    if (li) {
-      li.style.backgroundColor = "rgba(109, 109, 109, 0.5)";
+    // 2️⃣ 현재 hover li 색상 적용 (선택된 li는 무시)
+    if (highlightedMeshIdx != null && highlightedMeshIdx !== selectedMeshIdx) {
+      const li = document.getElementById(highlightedMeshIdx);
+      if (li) li.style.backgroundColor = "rgba(109, 109, 109, 0.5)"; // hover 색
     }
 
-    // 현재 id 기억
+    // 3️⃣ 이전 hover id 저장
     previousHighlightedId = highlightedMeshIdx;
   }
+
+  function selectLiMesh(current, previous) {
+  const { setSelectedMesh } = meshUseStore.getState();
+
+  const currentLi = document.getElementById(current);
+  const previousLi = previous != null ? document.getElementById(previous) : null;
+
+  // 1️⃣ 같은 것을 클릭했으면 선택 해제
+  if (current === previous) {
+    if (currentLi) currentLi.style.backgroundColor = "transparent";
+    setSelectedMesh(null);
+    return;
+  }
+
+  // 2️⃣ 이전 선택 초기화
+  if (previousLi) previousLi.style.backgroundColor = "transparent";
+
+  // 3️⃣ 현재 선택 적용
+  if (currentLi) currentLi.style.backgroundColor = "lightgreen";
+  setSelectedMesh(current);
+}
+
 
   return {
     update,
     clear,
     highlightLiColor,
+    selectLiMesh,
     element: sidebar,
   };
 }
