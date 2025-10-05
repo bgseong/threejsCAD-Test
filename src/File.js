@@ -4,17 +4,34 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { saveAs } from 'file-saver'; // npm install file-saver
 import { meshUseStore } from './stores/meshStore';
 import { threeUseStore } from './stores/threeStore';
+import occtimportjs from 'occt-import-js';
 
 export default function createModelLoader() {
   const loader = new GLTFLoader();
   let currentModel = null;
 
+  const wasmUrl = 'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.wasm';
   // 모델 로드
   async function load(fileOrUrl) {
     return new Promise((resolve, reject) => {
       const url = typeof fileOrUrl === "string"
-        ? fileOrUrl
-        : URL.createObjectURL(fileOrUrl);
+      ? fileOrUrl
+      : URL.createObjectURL(fileOrUrl);
+
+      console.log('fileOrUrl:', fileOrUrl);
+      console.log('url:', url);
+
+      // STEP 파일만 처리
+      if (typeof fileOrUrl !== 'string') {
+        const fileName = fileOrUrl.name.toLowerCase();
+        if (fileName.endsWith('.stp') || fileName.endsWith('.step')) {
+          // STEP 로딩 처리
+          LoadStep(fileOrUrl);
+          return;
+        } else {
+          console.warn('STEP 파일만 처리 가능합니다.');
+        }
+      }
 
       loader.load(
         url,
@@ -114,6 +131,81 @@ function saveGLB(filename = "model.glb") {
 }
 
 
+
+// STEP 파일 로드 함수
+async function LoadStep(fileUrl) {
+  const targetObject = new THREE.Object3D();
+
+  // occt-import-js 초기화
+  const occt = await occtimportjs({
+    locateFile: (name) => wasmUrl
+  });
+
+// FileReader로 파일 읽기
+  const fileBuffer = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(new Uint8Array(reader.result));
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(fileUrl);
+  });
+
+  // STEP 파일 읽기
+  const result = occt.ReadStepFile(fileBuffer);
+  
+  // 결과 메시 처리
+  for (let resultMesh of result.meshes) {
+    const geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(resultMesh.attributes.position.array, 3)
+    );
+
+    if (resultMesh.attributes.normal) {
+      geometry.setAttribute(
+        'normal',
+        new THREE.Float32BufferAttribute(resultMesh.attributes.normal.array, 3)
+      );
+    }
+
+    if (resultMesh.index) {
+      const index = Uint16Array.from(resultMesh.index.array);
+      geometry.setIndex(new THREE.BufferAttribute(index, 1));
+    }
+
+    let material;
+    if (resultMesh.color) {
+      const color = new THREE.Color(
+        resultMesh.color[0],
+        resultMesh.color[1],
+        resultMesh.color[2]
+      );
+      material = new THREE.MeshPhongMaterial({ color });
+    } else {
+      material = new THREE.MeshPhongMaterial({ color: 0xcccccc });
+    }
+
+    const mesh = new THREE.Mesh(geometry, material);
+    targetObject.add(mesh);
+  }
+
+    currentModel = targetObject;
+    threeUseStore.getState().scene.add(currentModel);
+
+    // 중앙 정렬 + 스케일 맞춤
+    //centerAndScale(currentModel);
+
+    console.log("✅ 모델 로드 완료:", fileUrl);
+
+    // meshStore에 추가
+    currentModel.traverse((child) => {
+      if (child.isMesh) {
+        meshUseStore.getState().addMesh(child);
+      }
+    });
+}
 
   return {
     load,
