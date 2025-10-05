@@ -18,18 +18,22 @@ export default function createModelLoader() {
       ? fileOrUrl
       : URL.createObjectURL(fileOrUrl);
 
-      console.log('fileOrUrl:', fileOrUrl);
-      console.log('url:', url);
 
       // STEP 파일만 처리
       if (typeof fileOrUrl !== 'string') {
         const fileName = fileOrUrl.name.toLowerCase();
         if (fileName.endsWith('.stp') || fileName.endsWith('.step')) {
           // STEP 로딩 처리
-          LoadStep(fileOrUrl);
-          return;
-        } else {
-          console.warn('STEP 파일만 처리 가능합니다.');
+          LoadStep(fileOrUrl)
+          .then((model) => {
+            console.log("STEP 로딩 완료 ✅");
+            resolve(model); // 성공 시 model 반환
+          })
+          .catch((err) => {
+            console.error("STEP 로딩 실패 ❌", err);
+            reject(err);
+          });
+        return;
         }
       }
 
@@ -153,7 +157,7 @@ async function LoadStep(fileUrl) {
 
   // STEP 파일 읽기
   const result = occt.ReadStepFile(fileBuffer);
-  
+  console.table(result);
   // 결과 메시 처리
   for (let resultMesh of result.meshes) {
     const geometry = new THREE.BufferGeometry();
@@ -186,8 +190,9 @@ async function LoadStep(fileUrl) {
     } else {
       material = new THREE.MeshPhongMaterial({ color: 0xcccccc });
     }
-
+    
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.name= resultMesh.name;
     targetObject.add(mesh);
   }
 
@@ -198,11 +203,10 @@ async function LoadStep(fileUrl) {
     //centerAndScale(currentModel);
 
     console.log("✅ 모델 로드 완료:", fileUrl);
-
     // meshStore에 추가
-    currentModel.traverse((child) => {
-      if (child.isMesh) {
-        meshUseStore.getState().addMesh(child);
+    currentModel.traverse((children) => {
+      if (children.isMesh) {
+        meshUseStore.getState().addMesh(children);
       }
     });
 }

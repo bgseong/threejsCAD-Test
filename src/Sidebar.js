@@ -37,7 +37,9 @@ export default function createSidebar(containerId = "sidebar") {
     const ul = document.createElement("ul");
 
         scene.traverse((child) => {
+          console.log(child);
       if (child.isMesh) {
+        
         const li = document.createElement("li");
         li.setAttribute("id", child.uuid);
         li.textContent = child.name || "Unnamed";

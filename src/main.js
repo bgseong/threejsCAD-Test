@@ -152,6 +152,7 @@ function initContextMenu() {
     const file = event.target.files[0];
     if (file) {
       await modelLoader.load(file);
+      console.log("완료");
       sidebar.update();
     }
   });
