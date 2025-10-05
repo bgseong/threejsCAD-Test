@@ -38,18 +38,28 @@ sidebar = createSidebar();
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
+    //console.log(intersects.length > 0 ? intersects[0].object.uuid : null);
     meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
     // model.highlightObjects();
     // sidebar.highlightLiColor();
+
     
   });
 
   renderer.domElement.addEventListener("click", () => {
-  const { highlightedMeshIdx } = meshUseStore.getState();
-  if (highlightedMeshIdx) {
-    model.selectMesh(highlightedMeshIdx);
-    
+  const {selectedMeshIdx, hoveredMeshIdx, clearSelectedMeshIdxs,selectedMeshIdxs} = meshUseStore.getState();
+  if (hoveredMeshIdx) {
+    meshUseStore.getState().setSelectedMesh(hoveredMeshIdx);
+    console.log(hoveredMeshIdx);
   }
+  else{
+        meshUseStore.getState().setSelectedMesh(null);
+        meshUseStore.getState().clearSelectedMeshIdxs();
+  }
+  
+
+      
+
   });
   // 우클릭 메뉴
   initContextMenu();
@@ -69,7 +79,7 @@ function initSub(){
     meshUseStore.subscribe(
   (state) => state.selectedMeshIdx,  // 관찰할 상태
   (current, previous) => {
-    model.selectMesh(current,previous);
+    model.selectMesh(current);
     sidebar.selectLiMesh(current,previous);
   });
 
@@ -82,13 +92,16 @@ function initSub(){
 function initContextMenu() {
   const contextMenu = document.createElement('div');
   const renderMenu = () => {
-    const { meshs } = meshUseStore.getState(); // 현재 meshs 가져오기
+    const { meshs, selectedMeshIdxs} = meshUseStore.getState(); // 현재 meshs 가져오기
     const hasMeshes = Object.keys(meshs).length > 0; // 하나라도 있으면 true
+    const hasSelected = Object.keys(selectedMeshIdxs).length > 0; // 하나라도 있으면 true
 
     contextMenu.innerHTML = `
       <ul style="list-style:none;margin:0;padding:4px;">
         <li id="openFile" style="padding:8px;cursor:pointer;">📂 파일 불러오기</li>
         ${hasMeshes ? `<li id="saveFile" style="padding:8px;cursor:pointer;">💾 저장하기</li>` : ""}
+        ${hasSelected ? `<li id="duplicateMesh" style="padding:8px;cursor:pointer;">💾 복사하기</li>` : ""}
+
       </ul>
     `;
   };
@@ -107,7 +120,8 @@ function initContextMenu() {
 
   const fileInput = document.createElement("input");
   fileInput.type = "file";
-  fileInput.accept = ".glb,.gltf";
+  // fileInput.accept = ".glb,.gltf";
+  fileInput.multiple = true; // 여러 파일 선택 가능
   fileInput.style.display = "none";
   document.body.appendChild(fileInput);
 
@@ -129,6 +143,9 @@ function initContextMenu() {
     } else if (e.target.id === "saveFile") {
       modelLoader.saveGLB(); // GLB 저장 함수
     }
+    else if(e.target.id === "duplicateMesh"){
+      showDuplicatePopup();
+    }
   });
 
   fileInput.addEventListener("change", async (event) => {
@@ -139,6 +156,47 @@ function initContextMenu() {
     }
   });
 }
+
+function showDuplicatePopup() {
+    const popup = document.createElement("div");
+    Object.assign(popup.style, {
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      background: "white",
+      border: "1px solid #aaa",
+      borderRadius: "8px",
+      boxShadow: "2px 2px 10px rgba(0,0,0,0.2)",
+      padding: "16px",
+      zIndex: 2000,
+      textAlign: "center",
+    });
+
+    popup.innerHTML = `
+      <h4 style="margin-top:0;">복사할 위치 지정</h4>
+      <div style="margin-bottom:8px;">
+        <label>X: <input id="dupX" type="number" value="1" style="width:60px;"></label>
+        <label>Y: <input id="dupY" type="number" value="0" style="width:60px;"></label>
+        <label>Z: <input id="dupZ" type="number" value="0" style="width:60px;"></label>
+      </div>
+      <button id="confirmDup" style="margin-right:8px;">확인</button>
+      <button id="cancelDup">취소</button>
+    `;
+    document.body.appendChild(popup);
+
+    popup.querySelector("#cancelDup").onclick = () => popup.remove();
+    popup.querySelector("#confirmDup").onclick = async () => {
+      const dx = parseFloat(document.getElementById("dupX").value) || 0;
+      const dy = parseFloat(document.getElementById("dupY").value) || 0;
+      const dz = parseFloat(document.getElementById("dupZ").value) || 0;
+      
+      model.duplicateMesh(dx,dy,dz);
+      sidebar.update();
+      popup.remove();
+    };
+  }
+
 
 function animate() {
   requestAnimationFrame(animate);

@@ -20,105 +20,160 @@ export default function createViewController() {
   setupControl();
 
   // 툴바 UI 생성
-  function createToolbar() {
-    const toolbar = document.createElement("div");
-    toolbar.id = "toolbar";
-    toolbar.innerHTML = `
-      <div class="group">
-        <span>이동</span>
-        <button data-action="moveX">X</button>
-        <button data-action="moveY">Y</button>
-        <button data-action="moveZ">Z</button>
+function createToolbar() {
+  const toolbar = document.createElement("div");
+  toolbar.id = "toolbar";
+  toolbar.innerHTML = `
+    <div class="group">
+      <span>이동</span>
+      <div class="axis">
+        <label>X:</label><input id="moveXValue" type="number" value="2" step="0.1">
+        <button data-action="moveX+">+</button>
+        <button data-action="moveX-">−</button>
       </div>
-      <div class="group">
-        <span>회전</span>
-        <button data-action="rotateX">X</button>
-        <button data-action="rotateY">Y</button>
-        <button data-action="rotateZ">Z</button>
+      <div class="axis">
+        <label>Y:</label><input id="moveYValue" type="number" value="2" step="0.1">
+        <button data-action="moveY+">+</button>
+        <button data-action="moveY-">−</button>
       </div>
-    `;
-    document.body.appendChild(toolbar);
+      <div class="axis">
+        <label>Z:</label><input id="moveZValue" type="number" value="2" step="0.1">
+        <button data-action="moveZ+">+</button>
+        <button data-action="moveZ-">−</button>
+      </div>
+    </div>
 
-    // 스타일 추가
-    const style = document.createElement("style");
-    style.textContent = `
-      #toolbar {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        display: flex;
-        gap: 20px;
-        padding: 10px;
-        background: rgba(40, 40, 40, 0.9);
-        border-radius: 10px;
-        color: white;
-        font-size: 14px;
+    <div class="group">
+      <span>회전</span>
+      <div class="axis">
+        <label>X:</label><input id="rotateXValue" type="number" value="90" step="5">
+        <button data-action="rotateX+">+</button>
+        <button data-action="rotateX-">−</button>
+      </div>
+      <div class="axis">
+        <label>Y:</label><input id="rotateYValue" type="number" value="90" step="5">
+        <button data-action="rotateY+">+</button>
+        <button data-action="rotateY-">−</button>
+      </div>
+      <div class="axis">
+        <label>Z:</label><input id="rotateZValue" type="number" value="90" step="5">
+        <button data-action="rotateZ+">+</button>
+        <button data-action="rotateZ-">−</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(toolbar);
+
+  // ✨ 스타일
+  const style = document.createElement("style");
+  style.textContent = `
+    #toolbar {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      gap: 20px;
+      padding: 10px 15px;
+      background: rgba(30, 30, 30, 0.9);
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      user-select: none;
+    }
+    #toolbar .group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #toolbar .axis {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    #toolbar input {
+      width: 50px;
+      text-align: right;
+      padding: 3px 5px;
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+    #toolbar button {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 4px;
+      background: #3a3a3a;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #toolbar button:hover {
+      background: #555;
+      transform: scale(1.05);
+    }
+  `;
+  document.head.appendChild(style);
+
+  // 🧠 이벤트 로직
+  toolbar.addEventListener("click", (e) => {
+    if (!e.target.matches("button")) return;
+    const action = e.target.dataset.action;
+    const { meshs, selectedMeshIdxs } = meshUseStore.getState();
+
+    // 각 축 이동/회전 값 가져오기
+    const getValue = (id) => parseFloat(document.getElementById(id).value || 0);
+
+    Object.keys(selectedMeshIdxs).forEach((key) => {
+      const mesh = meshs[key];
+      if (!mesh) return;
+
+      switch (action) {
+        // === 이동 ===
+        case "moveX+":
+          gsap.to(mesh.position, { x: mesh.position.x + getValue("moveXValue"), duration: 0.6 });
+          break;
+        case "moveX-":
+          gsap.to(mesh.position, { x: mesh.position.x - getValue("moveXValue"), duration: 0.6 });
+          break;
+        case "moveY+":
+          gsap.to(mesh.position, { y: mesh.position.y + getValue("moveYValue"), duration: 0.6 });
+          break;
+        case "moveY-":
+          gsap.to(mesh.position, { y: mesh.position.y - getValue("moveYValue"), duration: 0.6 });
+          break;
+        case "moveZ+":
+          gsap.to(mesh.position, { z: mesh.position.z + getValue("moveZValue"), duration: 0.6 });
+          break;
+        case "moveZ-":
+          gsap.to(mesh.position, { z: mesh.position.z - getValue("moveZValue"), duration: 0.6 });
+          break;
+
+        // === 회전 ===
+        case "rotateX+":
+          gsap.to(mesh.rotation, { x: mesh.rotation.x + (getValue("rotateXValue") * Math.PI) / 180, duration: 0.6 });
+          break;
+        case "rotateX-":
+          gsap.to(mesh.rotation, { x: mesh.rotation.x - (getValue("rotateXValue") * Math.PI) / 180, duration: 0.6 });
+          break;
+        case "rotateY+":
+          gsap.to(mesh.rotation, { y: mesh.rotation.y + (getValue("rotateYValue") * Math.PI) / 180, duration: 0.6 });
+          break;
+        case "rotateY-":
+          gsap.to(mesh.rotation, { y: mesh.rotation.y - (getValue("rotateYValue") * Math.PI) / 180, duration: 0.6 });
+          break;
+        case "rotateZ+":
+          gsap.to(mesh.rotation, { z: mesh.rotation.z + (getValue("rotateZValue") * Math.PI) / 180, duration: 0.6 });
+          break;
+        case "rotateZ-":
+          gsap.to(mesh.rotation, { z: mesh.rotation.z - (getValue("rotateZValue") * Math.PI) / 180, duration: 0.6 });
+          break;
       }
-      #toolbar .group {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-      }
-      #toolbar .group span {
-        font-size: 12px;
-        margin-bottom: 4px;
-      }
-      #toolbar button {
-        width: 32px;
-        height: 32px;
-        border: none;
-        border-radius: 6px;
-        background: #2d2d2d;
-        color: white;
-        font-weight: bold;
-        cursor: pointer;
-        transition: background 0.2s, transform 0.2s;
-      }
-      #toolbar button:hover {
-        background: #3d3d3d;
-        transform: scale(1.1);
-      }
-    `;
-    document.head.appendChild(style);
-
-    // 이벤트 바인딩
-    toolbar.addEventListener("click", (e) => {
-      if (!e.target.matches("button")) return;
-
-      const action = e.target.dataset.action;
-      const { meshs } = meshUseStore.getState();  // 전체 mesh 배열 가져오기
-
-      Object.values(meshs).forEach(mesh => {
-        if (!mesh) return;
-
-        switch (action) {
-          // 이동
-          case "moveX":
-            gsap.to(mesh.position, { x: mesh.position.x + 2, duration: 1, ease: "power2.inOut" });
-            break;
-          case "moveY":
-            gsap.to(mesh.position, { y: mesh.position.y + 2, duration: 1, ease: "power2.inOut" });
-            break;
-          case "moveZ":
-            gsap.to(mesh.position, { z: mesh.position.z + 2, duration: 1, ease: "power2.inOut" });
-            break;
-
-          // 회전
-          case "rotateX":
-            gsap.to(mesh.rotation, { x: mesh.rotation.x + Math.PI / 2, duration: 1, ease: "power2.inOut" });
-            break;
-          case "rotateY":
-            gsap.to(mesh.rotation, { y: mesh.rotation.y + Math.PI / 2, duration: 1, ease: "power2.inOut" });
-            break;
-          case "rotateZ":
-            gsap.to(mesh.rotation, { z: mesh.rotation.z + Math.PI / 2, duration: 1, ease: "power2.inOut" });
-            break;
-        }
-      });
     });
+  });
+}
 
-  }
 
   // 툴바 실행
   createToolbar();

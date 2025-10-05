@@ -4,6 +4,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 export const meshUseStore =  createStore(subscribeWithSelector((set) => ({
   meshs: {},           
   selectedMeshIdx: null,
+  selectedMeshIdxs: {},
   highlightedMeshIdx: null,
   hoveredMeshIdx: null,
 
@@ -21,6 +22,23 @@ export const meshUseStore =  createStore(subscribeWithSelector((set) => ({
       }));
     },
   removeMesh: (mesh) => set(state => ({ meshs: state.meshs.filter(m => m !== mesh) })),
+
+  addSelectedMeshIdx: (id, value = true) =>
+    set((state) => ({
+      selectedMeshIdxs: { ...state.selectedMeshIdxs, [id]: value },
+    })),
+
+  // ✅ 특정 key 삭제
+  removeSelectedMeshIdx: (id) =>
+    set((state) => {
+      const updated = { ...state.selectedMeshIdxs };
+      delete updated[id];
+      return { selectedMeshIdxs: updated };
+    }),
+
+  // ✅ 전체 초기화
+  clearSelectedMeshIdxs: () => set({ selectedMeshIdxs: {} }),
+  
   
 })));
 

@@ -117,26 +117,28 @@ export default function createSidebar(containerId = "sidebar") {
     previousHighlightedId = highlightedMeshIdx;
   }
 
-  function selectLiMesh(current, previous) {
-  const { setSelectedMesh } = meshUseStore.getState();
+  function selectLiMesh(current) {
+      const {
+        setSelectedMesh,
+        addSelectedMeshIdx,
+        selectedMeshIdxs,
+        setHighlightedMesh,
+      } = meshUseStore.getState();
+    const currentLi = document.getElementById(current);
 
-  const currentLi = document.getElementById(current);
-  const previousLi = previous != null ? document.getElementById(previous) : null;
+    if (currentLi){
+      currentLi.style.backgroundColor = "lightgreen";
+      setSelectedMesh(current);
+    }
+     else{
+      Object.keys(selectedMeshIdxs).forEach((id) => {
+        const lis = document.getElementById(id);
+      lis.style.backgroundColor = "transparent";
 
-  // 1️⃣ 같은 것을 클릭했으면 선택 해제
-  if (current === previous) {
-    if (currentLi) currentLi.style.backgroundColor = "transparent";
-    setSelectedMesh(null);
-    return;
+    });
+    }
+    
   }
-
-  // 2️⃣ 이전 선택 초기화
-  if (previousLi) previousLi.style.backgroundColor = "transparent";
-
-  // 3️⃣ 현재 선택 적용
-  if (currentLi) currentLi.style.backgroundColor = "lightgreen";
-  setSelectedMesh(current);
-}
 
 
   return {

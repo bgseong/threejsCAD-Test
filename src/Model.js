@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import { threeUseStore } from './stores/threeStore.js';
 import { meshUseStore } from './stores/meshStore.js';
+import { generateUUID } from "three/src/math/MathUtils.js";
 
 
 
@@ -12,7 +13,7 @@ export default function createModel() {
   function highlightObjects() {
     const { scene } = threeUseStore.getState();
 
-    const { selectedMeshIdx, highlightedMeshIdx, setHighlightedMesh, hoveredMeshIdx, meshs } = meshUseStore.getState();
+    const { selectedMeshIdx, highlightedMeshIdx, setHighlightedMesh, hoveredMeshIdx, meshs, selectedMeshIdxs} = meshUseStore.getState();
     const hoveredMesh =meshs[hoveredMeshIdx];
     const highlightedMesh = meshs[highlightedMeshIdx];
     const selectedMesh = meshs[selectedMeshIdx];
@@ -22,7 +23,7 @@ export default function createModel() {
         setHighlightedMesh(null);
       }
 
-      if (hoveredMesh && hoveredMesh !== selectedMesh) {
+      if (hoveredMesh && !(hoveredMeshIdx in selectedMeshIdxs)) {
         // originalHex가 없으면 저장
         if (hoveredMesh.originalHex === undefined) {
           hoveredMesh.originalHex = hoveredMesh.material.emissive.getHex();
@@ -32,37 +33,101 @@ export default function createModel() {
       }
   }
 
-function selectMesh(current, previous) {
+function selectMesh(current) {
   const {
     meshs,
     setSelectedMesh,
+    addSelectedMeshIdx,
+    selectedMeshIdxs,
     setHighlightedMesh,
   } = meshUseStore.getState();
 
   const currentMesh = meshs[current];
-  const previousMesh = meshs[previous];
-
-  // 🔹 이전 선택 복원
-  if (previousMesh && previousMesh !== currentMesh) {
-    if (previousMesh.material && previousMesh.material.emissive) {
-      previousMesh.material.emissive.setHex(previousMesh.currentHex ?? 0x000000);
-    }
-  }
-
-  // 🔹 현재 선택 강조
   if (currentMesh) {
     if (currentMesh.material && currentMesh.material.emissive) {
       const brightGreen = mixGreenAndBrighten(currentMesh.material.emissive.getHex());
       currentMesh.material.emissive.setHex(brightGreen);
     }
     setSelectedMesh(current); // 현재 선택 인덱스 저장
+    addSelectedMeshIdx(current);
     setHighlightedMesh(null); // 하이라이트 해제
-  } else {
-    setSelectedMesh(null); // 선택 없을 때 초기화
   }
+  else{
+    Object.keys(selectedMeshIdxs).forEach((id) => {
+    const mesh = meshs[id];
+    if(mesh){
+      mesh.material.emissive.setHex(mesh.originalHex ?? 0x000000);
+    }
+
+  });
+  }
+
 }
 
+async function duplicateMesh(dx = 0, dy = 0, dz = 0) {
+  const { meshs, selectedMeshIdxs, addMesh } = meshUseStore.getState();
+  const scene = threeUseStore.getState().scene;
 
+  if (!scene) return console.warn("씬이 없습니다.");
+
+  Object.keys(selectedMeshIdxs).forEach((id) => {
+    const original = meshs[id];
+    if (!original) return;
+
+    // 1️⃣ 깊은 복사
+    const clone = original.clone(true);
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        // Geometry 깊은 복사
+        child.geometry = child.geometry.clone();
+
+        // Material 깊은 복사
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map(mat => mat.clone());
+        } else if (child.material) {
+          child.material = child.material.clone();
+        }
+
+        // emissive 초기화
+        child.material.emissive.setHex(child.originalHex ?? 0x000000);
+      }
+    });
+
+    // 2️⃣ clone 기준 중심/스케일 정규화
+    //centerAndScale(clone);
+
+    // 3️⃣ 이동 적용
+    clone.position.x += dx;
+    clone.position.y += dy;
+    clone.position.z += dz;
+
+    // 4️⃣ UUID와 이름 처리
+    clone.uuid = THREE.MathUtils.generateUUID();
+    clone.name = (clone.name || "Unnamed") + " (복사본)";
+    clone.applyMatrix4(original.matrixWorld);
+
+    // 5️⃣ 씬과 store에 추가
+    scene.add(clone);
+    
+    addMesh(clone);
+    clone.scale.set(1, 1, 1);
+    
+  });
+
+  console.table(meshUseStore.getState().meshs);
+}
+
+// centerAndScale는 clone 기준 그대로 사용
+function centerAndScale(model) {
+
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+
+  model.position.sub(center); // 중심 원점 이동
+  const maxAxis = Math.max(size.x, size.y, size.z);
+  model.scale.multiplyScalar(1.0 / maxAxis); // 스케일 정규화
+}
 
 
 function brightenHex(hex, factor = 1.2, min = 20) {
@@ -98,5 +163,6 @@ function mixGreenAndBrighten(baseHex, factor = 1.2, greenAmount = 80, min = 20) 
   return {
     highlightObjects,
     selectMesh,
+    duplicateMesh,
   };
 }

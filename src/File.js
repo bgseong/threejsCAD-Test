@@ -35,7 +35,7 @@ export default function createModelLoader() {
           threeUseStore.getState().scene.add(currentModel);
 
           // 중앙 정렬 + 스케일 맞춤
-          centerAndScale(currentModel);
+          //centerAndScale(currentModel);
 
           console.log("✅ 모델 로드 완료:", fileOrUrl);
 
@@ -45,9 +45,6 @@ export default function createModelLoader() {
               meshUseStore.getState().addMesh(child);
             }
           });
-
-          console.table(meshUseStore.getState().meshs);
-
           resolve(currentModel);
         },
         (xhr) => {
@@ -74,25 +71,32 @@ export default function createModelLoader() {
 
   // GLB 파일로 저장
 function saveGLB(filename = "model.glb") {
-  if (!currentModel) return console.warn("저장할 모델이 없습니다.");
+  const scene = threeUseStore.getState().scene;
+  if (!scene) return console.warn("씬이 없습니다.");
 
+  // 씬에 있는 모든 mesh 수집
+  const exportGroup = new THREE.Group();
   const modifiedMeshes = [];
 
-  // 1️⃣ emissive 색상 초기화 (currentHex 기준)
-  currentModel.traverse((child) => {
-    if (child.isMesh && child.material && child.material.emissive) {
+  scene.traverse((child) => {
+    if (child.isMesh) {
+      // emissive 색상 초기화
       modifiedMeshes.push({
         mesh: child,
-        emissiveHex: child.material.emissive.getHex() // 저장 후 복원용
+        emissiveHex: child.material?.emissive?.getHex() ?? 0x000000
       });
-      child.material.emissive.setHex(child.currentHex ?? 0x000000); // 저장용 초기화
+      if (child.material?.emissive) {
+        child.material.emissive.setHex(child.currentHex ?? 0x000000);
+      }
+
+      exportGroup.add(child.clone(true)); // clone해서 export용 그룹에 추가
     }
   });
 
-  // 2️⃣ GLB 저장
+  // GLB 저장
   const exporter = new GLTFExporter();
   exporter.parse(
-    currentModel,
+    exportGroup,
     (result) => {
       const blob = result instanceof ArrayBuffer
         ? new Blob([result], { type: 'application/octet-stream' })
@@ -100,14 +104,15 @@ function saveGLB(filename = "model.glb") {
 
       saveAs(blob, filename);
 
-      // 3️⃣ 원래 화면 상태로 복원
+      // 원래 색상 복원
       modifiedMeshes.forEach(({ mesh, emissiveHex }) => {
-        mesh.material.emissive.setHex(emissiveHex);
+        if (mesh.material?.emissive) mesh.material.emissive.setHex(emissiveHex);
       });
     },
     { binary: true } // GLB 저장
   );
 }
+
 
 
   return {
