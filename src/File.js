@@ -195,8 +195,13 @@ async function LoadStep(fileUrl) {
     mesh.name= resultMesh.name;
     targetObject.add(mesh);
   }
+    const box = new THREE.Box3().setFromObject(targetObject);
+    const center = box.getCenter(new THREE.Vector3());
+    targetObject.position.sub(center); // 중심을 원점으로 이동
+
 
     currentModel = targetObject;
+    console.log(currentModel);
     threeUseStore.getState().scene.add(currentModel);
 
     // 중앙 정렬 + 스케일 맞춤

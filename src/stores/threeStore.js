@@ -33,19 +33,27 @@ export const threeUseStore = createStore((set) => ({
       d,
       -d,
       0.1,
-      1000
+      1000000
     );
+    
     camera.position.set(10, 10, 10);
     camera.lookAt(0, 0, 0);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     hemiLight.position.set(0, 20, 0);
+
+    const axes = new THREE.AxesHelper(5);
+    scene.add(axes);
     scene.add(hemiLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(5, 10, 7.5);
     scene.add(dirLight);
     const mouse = new THREE.Vector2();
+
+
+
+    
 
     set({ scene, camera, renderer, hemiLight, dirLight , mouse});
   },

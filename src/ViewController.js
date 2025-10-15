@@ -1,11 +1,12 @@
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { threeUseStore } from "./stores/threeStore.js";
 import { meshUseStore } from "./stores/meshStore.js";
+import * as THREE from 'three';
 import gsap from "gsap";
 
 export default function createViewController() {
   const { scene, camera, renderer } = threeUseStore.getState();
-
+  const direction = new THREE.Vector3()
   const controls = new OrbitControls(camera, renderer.domElement);
 
   // OrbitControls 기본 세팅
@@ -15,6 +16,8 @@ export default function createViewController() {
     controls.enableZoom = true;
     controls.zoomToCursor = true;
     controls.screenSpacePanning = true;
+    
+    
   }
 
   setupControl();
@@ -180,7 +183,18 @@ function createToolbar() {
 
   // 외부 API 노출
   return {
-    controlUpdate: () => controls.update(),
+    controlUpdate: () => {
+
+      camera.getWorldDirection(direction);
+
+      // 카메라 위치 + 바라보는 방향 * 거리
+      const distance = 10; // 원하는 거리 (예: 카메라 앞쪽 10단위)
+      const targetPosition = camera.position.clone().add(direction.multiplyScalar(distance));
+
+      // 화면의 중앙을 회전 중심으로
+      controls.target.copy(targetPosition);
+      
+      controls.update()},
     getControls: () => controls,
   };
 }
