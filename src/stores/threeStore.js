@@ -46,6 +46,12 @@ export const threeUseStore = createStore((set) => ({
     scene.add(axes);
     scene.add(hemiLight);
 
+
+    const gridHelper = new THREE.GridHelper(100, 10); 
+    scene.add(gridHelper);
+
+
+
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(5, 10, 7.5);
     scene.add(dirLight);

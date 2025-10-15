@@ -34,66 +34,99 @@ export default function createSidebar(containerId = "sidebar") {
   function update() {
     clear();
 
-    const ul = document.createElement("ul");
+const ul = document.createElement("ul");
 
-        scene.traverse((child) => {
-          console.log(child);
-      if (child.isMesh) {
-        
+// 씬 내 Object3D(그룹) 순회
+scene.traverse((child) => {
+  // Object3D이고 Mesh가 하나 이상 있으면 그룹 처리
+  if (child.isObject3D && child.children.some(c => c.isMesh)) {
+    const groupLi = document.createElement("li");
+    groupLi.style.padding = "4px 0";
+
+    // 화살표 + 그룹 이름
+    const toggleBtn = document.createElement("span");
+    toggleBtn.textContent = "▶"; // 기본 닫힘
+    toggleBtn.style.cursor = "pointer";
+    toggleBtn.style.marginRight = "6px";
+
+    const groupName = document.createElement("span");
+    groupName.textContent = child.name || "Unnamed Group";
+    groupName.style.fontWeight = "bold";
+
+    groupLi.appendChild(toggleBtn);
+    groupLi.appendChild(groupName);
+
+    // 그룹 안의 Mesh 리스트
+    const childUl = document.createElement("ul");
+    childUl.style.display = "none";
+    childUl.style.paddingLeft = "16px";
+
+    child.children.forEach((mesh) => {
+      if (mesh.isMesh) {
         const li = document.createElement("li");
-        li.setAttribute("id", child.uuid);
-        li.textContent = child.name || "Unnamed";
+        li.setAttribute("id", mesh.uuid);
+        li.textContent = mesh.name || "Unnamed";
         li.style.padding = "4px 0";
         li.style.cursor = "pointer";
+
+        // 체크박스
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = true;
         checkbox.style.marginRight = "8px";
-
         checkbox.addEventListener("change", () => {
-          child.visible = checkbox.checked;
+          mesh.visible = checkbox.checked;
         });
 
-        // 색상 선택기 생성
+        // 색상 선택기
         const colorInput = document.createElement("input");
         colorInput.type = "color";
-        colorInput.value = `#${child.material.color.getHexString()}`;
+        colorInput.value = `#${mesh.material.color.getHexString()}`;
         colorInput.style.marginLeft = "8px";
-
         colorInput.addEventListener("input", () => {
-          if (child.material) {
-            child.material.color.set(colorInput.value);
-          }
+          if (mesh.material) mesh.material.color.set(colorInput.value);
         });
 
-        // 체크박스와 색상 선택기 li에 추가
+        // 체크박스 + 색상 div
         const rightContainer = document.createElement("div");
         rightContainer.style.display = "flex";
         rightContainer.style.alignItems = "center";
         rightContainer.appendChild(checkbox);
         rightContainer.appendChild(colorInput);
         li.appendChild(rightContainer);
+
         // Hover 이벤트
         li.addEventListener("mousemove", () => {
-          meshUseStore.getState().setHoveredMesh(child.uuid);
-          // model.highlightObjects();
-          // highlightLiColor();
+          meshUseStore.getState().setHoveredMesh(mesh.uuid);
         });
-
-        // li.addEventListener("mouseleave", () => {
-        //   const { selectedMeshIdx } = meshUseStore.getState();
-        //   if (child.uuid !== selectedMeshIdx) meshUseStore.getState().setHoveredMesh(null);
-        // });
 
         // Click 이벤트
         li.addEventListener("click", () => {
-          model.selectMesh(child.uuid);
+          model.selectMesh(mesh.uuid);
         });
-        ul.appendChild(li);
+
+        childUl.appendChild(li);
       }
     });
 
-    sidebar.appendChild(ul);
+    // 토글 버튼 이벤트
+    toggleBtn.addEventListener("click", () => {
+      if (childUl.style.display === "none") {
+        childUl.style.display = "block";
+        toggleBtn.textContent = "▼";
+      } else {
+        childUl.style.display = "none";
+        toggleBtn.textContent = "▶";
+      }
+    });
+
+    groupLi.appendChild(childUl);
+    ul.appendChild(groupLi);
+  }
+});
+
+sidebar.appendChild(ul);
+
   }
 
   initStyle();

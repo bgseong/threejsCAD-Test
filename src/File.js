@@ -139,7 +139,8 @@ function saveGLB(filename = "model.glb") {
 // STEP 파일 로드 함수
 async function LoadStep(fileUrl) {
   const targetObject = new THREE.Object3D();
-
+  console.log(fileUrl);
+  targetObject.name = fileUrl.name;
   // occt-import-js 초기화
   const occt = await occtimportjs({
     locateFile: (name) => wasmUrl

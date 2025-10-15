@@ -38,7 +38,7 @@ sidebar = createSidebar();
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
-    console.log(intersects);
+    //console.log(intersects);
     //console.log(intersects.length > 0 ? intersects[0].object.uuid : null);
     meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
     // model.highlightObjects();
