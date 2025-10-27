@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import gsap from "gsap";
 
 export default function createViewController() {
-  const { scene, camera, renderer } = threeUseStore.getState();
+  const { scene, camera, renderer, transformControls } = threeUseStore.getState();
   const direction = new THREE.Vector3()
   const controls = new OrbitControls(camera, renderer.domElement);
 
@@ -17,7 +17,10 @@ export default function createViewController() {
     controls.zoomToCursor = true;
     controls.screenSpacePanning = true;
     
-    
+    transformControls.addEventListener('dragging-changed', (event) => {
+    controls.enabled = !event.value; // 드래그 중이면 orbit 비활성화, 끝나면 다시 활성화
+  });
+
   }
 
   setupControl();
@@ -128,7 +131,7 @@ function createToolbar() {
     // 각 축 이동/회전 값 가져오기
     const getValue = (id) => parseFloat(document.getElementById(id).value || 0);
 
-    Object.keys(selectedMeshIdxs).forEach((key) => {
+    selectedMeshIdxs.forEach((key) => {
       const mesh = meshs[key];
       if (!mesh) return;
 
@@ -184,17 +187,51 @@ function createToolbar() {
   // 외부 API 노출
   return {
     controlUpdate: () => {
+      const {meshs, selectedMeshIdxs} = meshUseStore.getState();
+        //console.log(selectedMeshIdxs);
+            if (selectedMeshIdxs.size) {
+                // 중심점 계산용 Vector3
+                // const center = new THREE.Vector3();
 
-      camera.getWorldDirection(direction);
+                // // 모든 선택된 mesh들의 월드 좌표를 더함
+                // selectedMeshIdxs.forEach(idx => {
+                //   console.log(meshs[idx]);
+                //   const worldPos = new THREE.Vector3();
+                //   meshs[idx].getWorldPosition(worldPos);
+                //   center.add(worldPos);
+                //   console.log(worldPos);
+                // });
 
-      // 카메라 위치 + 바라보는 방향 * 거리
-      const distance = 10; // 원하는 거리 (예: 카메라 앞쪽 10단위)
-      const targetPosition = camera.position.clone().add(direction.multiplyScalar(distance));
+                // // 평균을 내서 중심점 계산
+                // center.divideScalar(selectedMeshIdxs);
 
-      // 화면의 중앙을 회전 중심으로
-      controls.target.copy(targetPosition);
+                // // OrbitControls의 타겟을 이 중심점으로 설정
+                // controls.target.copy(center);
+
+                // // 컨트롤러 갱신
+                // controls.update();
+                // console.log(center);
+              }
+              else{
+                camera.getWorldDirection(direction);
+
+                // 카메라 위치 + 바라보는 방향 * 거리
+                const distance = 10; // 원하는 거리 (예: 카메라 앞쪽 10단위)
+                const targetPosition = camera.position.clone().add(direction.multiplyScalar(distance));
+
+                // 화면의 중앙을 회전 중심으로
+                controls.target.copy(targetPosition);
+                
+                controls.update()
+                //console.log(targetPosition);
+                // console.log(targetPosition);
+              }
       
-      controls.update()},
+    
+    
+    },
+
+  
     getControls: () => controls,
   };
 }

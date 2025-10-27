@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import createModelLoader from './File.js';
+import occFileUtil from './OccFileUtil.js'
 import createSidebar from './Sidebar.js';
 import createViewController from './ViewController.js';
 import createModel from './Model.js';
@@ -17,6 +18,7 @@ let view, model;
 
 let sidebar;
 
+modelLoader = await occFileUtil();
 
 const raycaster = new THREE.Raycaster();
 
@@ -24,27 +26,25 @@ const raycaster = new THREE.Raycaster();
 init();
 animate();
 
-function init() {
-  // ModelLoader 생성
-  modelLoader = createModelLoader();
+async function init() {
 
   view = createViewController();
   model = createModel();
 
   window.addEventListener('resize', onWindowResize);
-sidebar = createSidebar();
+  sidebar = createSidebar();
   renderer.domElement.addEventListener('mousemove', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    
     raycaster.setFromCamera(mouse, camera);
+    
     const intersects = raycaster.intersectObjects(scene.children, true);
     //console.log(intersects);
     //console.log(intersects.length > 0 ? intersects[0].object.uuid : null);
     meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
     // model.highlightObjects();
     // sidebar.highlightLiColor();
-
-    
   });
 
   renderer.domElement.addEventListener("click", () => {
@@ -57,10 +57,6 @@ sidebar = createSidebar();
         meshUseStore.getState().setSelectedMesh(null);
         meshUseStore.getState().clearSelectedMeshIdxs();
   }
-  
-
-      
-
   });
   // 우클릭 메뉴
   initContextMenu();
@@ -83,9 +79,6 @@ function initSub(){
     model.selectMesh(current);
     sidebar.selectLiMesh(current,previous);
   });
-
-
-
 }
 
 
@@ -95,7 +88,7 @@ function initContextMenu() {
   const renderMenu = () => {
     const { meshs, selectedMeshIdxs} = meshUseStore.getState(); // 현재 meshs 가져오기
     const hasMeshes = Object.keys(meshs).length > 0; // 하나라도 있으면 true
-    const hasSelected = Object.keys(selectedMeshIdxs).length > 0; // 하나라도 있으면 true
+    const hasSelected = selectedMeshIdxs.size > 0; // 하나라도 있으면 true
 
     contextMenu.innerHTML = `
       <ul style="list-style:none;margin:0;padding:4px;">
@@ -152,7 +145,7 @@ function initContextMenu() {
   fileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (file) {
-      await modelLoader.load(file);
+      await modelLoader.loadSTEPorIGES(file);
       console.log("완료");
       sidebar.update();
     }
@@ -205,7 +198,7 @@ function animate() {
   view.controlUpdate();
 
 
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); 
 }
 
 

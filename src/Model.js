@@ -8,8 +8,6 @@ import { generateUUID } from "three/src/math/MathUtils.js";
 
 export default function createModel() {
 
-  
-
   function highlightObjects() {
     const { scene } = threeUseStore.getState();
 
@@ -41,27 +39,43 @@ function selectMesh(current) {
     selectedMeshIdxs,
     setHighlightedMesh,
   } = meshUseStore.getState();
+  const {  scene, transformControls } = threeUseStore.getState();
 
   const currentMesh = meshs[current];
   if (currentMesh) {
     if (currentMesh.material && currentMesh.material.emissive) {
       const brightGreen = mixGreenAndBrighten(currentMesh.material.emissive.getHex());
       currentMesh.material.emissive.setHex(brightGreen);
+
+      // const moveSpeed = 5;
+
+      // const forward = new THREE.Vector3();
+      // camera.getWorldDirection(forward);
+
+      // const right = new THREE.Vector3();
+      // right.crossVectors(forward, camera.up).normalize();
+
+      // currentMesh.position.addScaledVector(right, -moveSpeed);
+      transformControls.attach(currentMesh);
+      scene.add(transformControls.getHelper());
+      console.table(currentMesh.matrix);
     }
+
     setSelectedMesh(current); // 현재 선택 인덱스 저장
     addSelectedMeshIdx(current);
     setHighlightedMesh(null); // 하이라이트 해제
   }
   else{
-    Object.keys(selectedMeshIdxs).forEach((id) => {
+    selectedMeshIdxs.forEach((id) => {
     const mesh = meshs[id];
     if(mesh){
+       transformControls.detach();
+       scene.remove(transformControls.getHelper());
+
       mesh.material.emissive.setHex(mesh.originalHex ?? 0x000000);
     }
-
   });
-  }
-
+}
 }
 
 async function duplicateMesh(dx = 0, dy = 0, dz = 0) {
@@ -70,7 +84,7 @@ async function duplicateMesh(dx = 0, dy = 0, dz = 0) {
 
   if (!scene) return console.warn("씬이 없습니다.");
 
-  Object.keys(selectedMeshIdxs).forEach((id) => {
+  selectedMeshIdxs.forEach((id) => {
     const original = meshs[id];
     if (!original) return;
 

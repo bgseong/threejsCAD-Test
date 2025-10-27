@@ -38,8 +38,10 @@ const ul = document.createElement("ul");
 
 // 씬 내 Object3D(그룹) 순회
 scene.traverse((child) => {
+  console.log(child);
   // Object3D이고 Mesh가 하나 이상 있으면 그룹 처리
-  if (child.isObject3D && child.children.some(c => c.isMesh)) {
+  if (child.isObject3D && child.children.some(c => c.isMesh) &&
+  child.name && child.name.trim() !== '') {
     const groupLi = document.createElement("li");
     groupLi.style.padding = "4px 0";
 
@@ -50,6 +52,9 @@ scene.traverse((child) => {
     toggleBtn.style.marginRight = "6px";
 
     const groupName = document.createElement("span");
+    if(child.name === null){
+      
+    }
     groupName.textContent = child.name || "Unnamed Group";
     groupName.style.fontWeight = "bold";
 
@@ -166,7 +171,7 @@ sidebar.appendChild(ul);
       setSelectedMesh(current);
     }
      else{
-      Object.keys(selectedMeshIdxs).forEach((id) => {
+      selectedMeshIdxs.forEach((id) => {
         const lis = document.getElementById(id);
       lis.style.backgroundColor = "transparent";
 

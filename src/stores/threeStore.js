@@ -1,6 +1,8 @@
 import { createStore } from 'zustand/vanilla';
 import * as THREE from 'three';
 
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+
 const d = 5;
 const aspect = window.innerWidth / window.innerHeight;
 
@@ -11,6 +13,7 @@ export const threeUseStore = createStore((set) => ({
     hemiLight: null,
     dirLight: null,
     mouse: null,
+    transformControls: null,
 
 
     init: () => {
@@ -32,7 +35,7 @@ export const threeUseStore = createStore((set) => ({
       d * aspect,
       d,
       -d,
-      0.1,
+      0.05,
       1000000
     );
     
@@ -42,13 +45,13 @@ export const threeUseStore = createStore((set) => ({
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     hemiLight.position.set(0, 20, 0);
 
-    const axes = new THREE.AxesHelper(5);
-    scene.add(axes);
+    // const axes = new THREE.AxesHelper(5);
+    // scene.add(axes);
     scene.add(hemiLight);
 
 
-    const gridHelper = new THREE.GridHelper(100, 10); 
-    scene.add(gridHelper);
+    // const gridHelper = new THREE.GridHelper(100, 10); 
+    // scene.add(gridHelper);
 
 
 
@@ -58,12 +61,14 @@ export const threeUseStore = createStore((set) => ({
     const mouse = new THREE.Vector2();
 
 
+    const transformControls = new TransformControls(camera, renderer.domElement);
 
-    
 
-    set({ scene, camera, renderer, hemiLight, dirLight , mouse});
+
+
+    set({ scene, camera, renderer, hemiLight, dirLight , mouse, transformControls});
   },
-  
+
 }));
 
 
