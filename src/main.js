@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-import createModelLoader from './File.js';
-import occFileUtil from './OccFileUtil.js'
+//import createModelLoader from './File.js';
+import occFileUtil from './occ/OccFileUtil.js'
 import createSidebar from './Sidebar.js';
 import createViewController from './ViewController.js';
 import createModel from './Model.js';
@@ -135,7 +135,19 @@ function initContextMenu() {
     if (e.target.id === "openFile") {
       fileInput.click();
     } else if (e.target.id === "saveFile") {
-      modelLoader.saveGLB(); // GLB 저장 함수
+      var stepFileText = modelLoader.saveShapeSTEP(); // GLB 저장 함수
+      if (stepFileText) {
+      const blob = new Blob([stepFileText], { type: "application/step" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "MyShape.step";
+      a.click();
+      URL.revokeObjectURL(url);
+      console.log("✅ STEP 파일 다운로드 완료: MyShape.step");
+    } else {
+      console.warn("⚠️ STEP 데이터가 비어 있습니다.");
+    }
     }
     else if(e.target.id === "duplicateMesh"){
       showDuplicatePopup();
