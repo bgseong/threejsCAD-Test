@@ -11,6 +11,9 @@ import {
     meshUseStore
 } from '../stores/meshStore.js';
 
+import { shapeUseStore } from '../stores/shapeStore.js';
+
+
 import openCascadeHelper from './openCascadeHelper';
 import * as THREE from 'three';
 
@@ -19,16 +22,19 @@ import * as THREE from 'three';
 
 export default async function occFileUtil() {
 
-
-    
-
     const oc = await new Promise(async (resolve) => {
         const oc = await opencascade({
             locateFile: (file) => wasm,
         });
         resolve(oc);
     });
-    const shapeTool = new oc.XCAFDoc_ShapeTool();
+    const { init } = shapeUseStore.getState();
+    init(oc);
+
+    const shapeTool = oc.XCAFDoc_ShapeTool();
+    const colorTool = oc.XCAFDoc_ColorTool();
+    const labelTool = oc.XCAFDoc_LabelTool();
+
 
     var shapes = new oc.TopoDS_Compound();  
 
@@ -62,11 +68,14 @@ export default async function occFileUtil() {
     }
 
     const loadSTEPorIGES = async (inputFile) => {
+    
         const {
             scene
         } = threeUseStore.getState();
 
         await loadFileAsync(inputFile).then(async (fileText) => {
+
+
             const fileType = (() => {
                 switch (inputFile.name.toLowerCase().split(".").pop()) {
                     case "step":
@@ -114,20 +123,20 @@ export default async function occFileUtil() {
                     const nbs = reader.NbShapes();
                     if (nbs === 0) {
                         console.error('No shapes found in file');
-                        return;
+                        return;``
                     }
 
                     console.log('변환된 shape 수:', nbs);
 
 
-                    
+                    const { shapes, addShape } = shapeUseStore.getState(); 
 
                     // 각 shape 반복
                     for (let i = 1; i <= nbs; i++) {
                         const aShape = reader.Shape(i);
                         const shapeGroup = new THREE.Object3D(); // Shape 단위 Group
                         shapeGroup.name = inputFile.name;
-                        sceneBuilder.Add(shapes, aShape);
+                        addShape(aShape);
                         console.log(shapes);
                         // --- SOLID 처리 ---
                         let ex = new oc.TopExp_Explorer_2(
@@ -225,6 +234,9 @@ export default async function occFileUtil() {
 
 
     function saveShapeSTEP(filename = "CascadeStudioPart.step") {
+
+        const { shapes, replaceShapes } = shapeUseStore.getState();
+
         if (!shapes || shapes.IsNull?.()) {
             console.error("❌ currentShape가 비어있습니다.");
             return null;
@@ -238,7 +250,9 @@ export default async function occFileUtil() {
         rotation.SetRotation_1(axis, angle);
 
         let transformer = new oc.BRepBuilderAPI_Transform_2(shapes, rotation, false);
-        shapes = transformer.Shape();
+        replaceShapes(transformer.Shape());
+        console.log(shapes);
+        
         // STEP Writer 생성
         let writer = new oc.STEPControl_Writer_1();
 
@@ -250,6 +264,8 @@ export default async function occFileUtil() {
         // Shape → STEP writer로 전달
         let transferResult = writer.Transfer(shapes, oc.STEPControl_StepModelType.STEPControl_ManifoldSolidBrep, true, progress);
         console.log(transferResult);
+
+
         if (transferResult !== oc.IFSelect_ReturnStatus.IFSelect_RetDone) {
             console.error("❌ STEP Writer로 Shape 전달 실패 (Transfer Error)");
             return null;

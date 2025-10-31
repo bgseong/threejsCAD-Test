@@ -11,15 +11,23 @@ export default function createViewController() {
 
   // OrbitControls 기본 세팅
   function setupControl() {
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    controls.enableDamping = false;
     controls.enableZoom = true;
     controls.zoomToCursor = true;
     controls.screenSpacePanning = true;
     
+    
     transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value; // 드래그 중이면 orbit 비활성화, 끝나면 다시 활성화
   });
+  controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,  // 회전
+  MIDDLE: THREE.MOUSE.DOLLY | THREE.MOUSE.ROTATE,// 줌
+  RIGHT: THREE.MOUSE.PAN,    // 패닝
+};
+
+// ✅ TransformControls 조작을 Middle(휠 클릭)로 바꾸기
+transformControls.mouseButtons.TRANSFORM = THREE.MOUSE.MIDDLE;
 
   }
 
