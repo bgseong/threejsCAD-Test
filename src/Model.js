@@ -9,8 +9,6 @@ import { generateUUID } from "three/src/math/MathUtils.js";
 export default function createModel() {
 
   function highlightObjects() {
-    const { scene } = threeUseStore.getState();
-
     const { selectedMeshIdx, highlightedMeshIdx, setHighlightedMesh, hoveredMeshIdx, meshs, selectedMeshIdxs} = meshUseStore.getState();
     const hoveredMesh =meshs[hoveredMeshIdx];
     const highlightedMesh = meshs[highlightedMeshIdx];
@@ -39,7 +37,7 @@ function selectMesh(current) {
     selectedMeshIdxs,
     setHighlightedMesh,
   } = meshUseStore.getState();
-  const {  scene, transformControls } = threeUseStore.getState();
+  const {  scene, transformControls,transformChange, transformIs } = threeUseStore.getState();
 
   const currentMesh = meshs[current];
   if (currentMesh) {
@@ -56,9 +54,8 @@ function selectMesh(current) {
       // right.crossVectors(forward, camera.up).normalize();
 
       // currentMesh.position.addScaledVector(right, -moveSpeed);
-      transformControls.attach(currentMesh);
-      scene.add(transformControls.getHelper());
-      console.table(currentMesh.matrix);
+      //transformControls.attach(currentMesh);
+      //scene.add(transformControls.getHelper());
     }
 
     setSelectedMesh(current); // 현재 선택 인덱스 저장
@@ -69,14 +66,22 @@ function selectMesh(current) {
     selectedMeshIdxs.forEach((id) => {
     const mesh = meshs[id];
     if(mesh){
-       transformControls.detach();
-       scene.remove(transformControls.getHelper());
-
+      transformControls.detach();
+      scene.remove(transformControls.getHelper());
+      if(transformIs) transformChange();
       mesh.material.emissive.setHex(mesh.originalHex ?? 0x000000);
     }
   });
 }
 }
+
+function addTransformControl(current){
+    const {  scene, transformControls } = threeUseStore.getState();
+    transformControls.attach(current);
+    scene.add(transformControls.getHelper());
+}
+
+
 
 async function duplicateMesh(dx = 0, dy = 0, dz = 0) {
   const { meshs, selectedMeshIdxs, addMesh } = meshUseStore.getState();
@@ -178,5 +183,6 @@ function mixGreenAndBrighten(baseHex, factor = 1.2, greenAmount = 80, min = 20) 
     highlightObjects,
     selectMesh,
     duplicateMesh,
+    addTransformControl,
   };
 }

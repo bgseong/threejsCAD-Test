@@ -1,5 +1,8 @@
 import opencascade from "opencascade.js/dist/opencascade.full.js";
 import wasm from "opencascade.js/dist/opencascade.full.wasm?url";
+
+//import { init, readIgesFile, readStepFile, triangulate, writeObjFile, writeGltfFile, writeGlbFile } from 'opencascade-tools'
+
 import {
     ConstNode
 } from "three/webgpu";
@@ -13,7 +16,6 @@ import {
 
 import { shapeUseStore } from '../stores/shapeStore.js';
 
-
 import openCascadeHelper from './openCascadeHelper';
 import * as THREE from 'three';
 
@@ -21,6 +23,8 @@ import * as THREE from 'three';
 
 
 export default async function occFileUtil() {
+
+   // const occ = await init()
 
     const oc = await new Promise(async (resolve) => {
         const oc = await opencascade({
@@ -31,15 +35,7 @@ export default async function occFileUtil() {
     const { init } = shapeUseStore.getState();
     init(oc);
 
-    const shapeTool = oc.XCAFDoc_ShapeTool();
-    const colorTool = oc.XCAFDoc_ColorTool();
-    const labelTool = oc.XCAFDoc_LabelTool();
-
-
-    var shapes = new oc.TopoDS_Compound();  
-
-    let sceneBuilder = new oc.BRep_Builder();
-    sceneBuilder.MakeCompound(shapes);
+    var shapeGroup = null;
 
     function stringToHash(str) {
         let hash = 0;
@@ -52,6 +48,22 @@ export default async function occFileUtil() {
     }
 
 
+    const appHandle = new oc.Handle_TDocStd_Application_2(new oc.TDocStd_Application());
+    const app = appHandle.get();
+    //oc.BinXCAFDrivers.DefineFormat(appHandle);
+
+
+    const doc = new oc.TDocStd_Document(new oc.TCollection_ExtendedString_2("MDTV-XCAF", true));
+    const aDoc = new oc.Handle_TDocStd_Document_2(doc);
+
+
+    const main = doc.Main();
+    if (!main) {
+        throw new Error("❌ doc.Main()이 null입니다. 도큐먼트가 올바르지 않습니다.");
+    }
+
+    const shapeTool = oc.XCAFDoc_DocumentTool.ShapeTool(main).get();
+    const colorTool = oc.XCAFDoc_DocumentTool.ColorTool(main).get();
 
 
     let sceneShapes = {};
@@ -68,13 +80,7 @@ export default async function occFileUtil() {
     }
 
     const loadSTEPorIGES = async (inputFile) => {
-    
-        const {
-            scene
-        } = threeUseStore.getState();
-
         await loadFileAsync(inputFile).then(async (fileText) => {
-
 
             const fileType = (() => {
                 switch (inputFile.name.toLowerCase().split(".").pop()) {
@@ -90,254 +96,272 @@ export default async function occFileUtil() {
             })();
             // Writes the uploaded file to Emscripten's Virtual Filesystem
             oc.FS.createDataFile("/", `file.${fileType}`, fileText, true, true);
-            console.table(fileType, fileText);
-
-
+            //console.table(fileType, fileText);
 
 
             var reader = null;
             if (fileType === "step") {
-                reader = new oc.STEPControl_Reader_1();
+                reader = new oc.STEPCAFControl_Reader_1();
             } else if (fileType === "iges") {
-                reader = new oc.IGESControl_Reader_1();
+                reader = new oc.IGESCAFControl_Reader_1();
             } else {
                 console.error("opencascade.js can't parse this extension! (yet)");
             }
-            const readResult = reader.ReadFile(`file.${fileType}`); // Read the file
+            console.log("aaa");
 
+            reader.SetColorMode(true);
+            reader.SetNameMode(true);
+
+            const readResult = reader.ReadFile(`file.${fileType}`); // Read the file
+            console.log(readResult);
             try {
                 if (readResult === oc.IFSelect_ReturnStatus.IFSelect_RetDone) {
-
-                    // const shapeTool = new oc.XCAFDoc_ShapeTool();
-                    // const colorTool = new oc.XCAFDoc_ColorTool();
-
                     openCascadeHelper.setOpenCascade(oc);
-                    const nbr = reader.NbRootsForTransfer();
-                    console.log('루트 개수:', nbr);
-                    for (let n = 1; n <= nbr; n++) {
-                        console.log(`STEP: Transferring Root ${n}`);
-                        reader.TransferRoot(n, new oc.Message_ProgressRange_1());
-                    }
 
-                    // 변환된 shape 수
-                    const nbs = reader.NbShapes();
-                    if (nbs === 0) {
-                        console.error('No shapes found in file');
-                        return;``
-                    }
+                    reader.Transfer_1(aDoc,new oc.Message_ProgressRange_1());
 
-                    console.log('변환된 shape 수:', nbs);
-
-
-                    const { shapes, addShape } = shapeUseStore.getState(); 
-
-                    // 각 shape 반복
-                    for (let i = 1; i <= nbs; i++) {
-                        const aShape = reader.Shape(i);
-                        const shapeGroup = new THREE.Object3D(); // Shape 단위 Group
-                        shapeGroup.name = inputFile.name;
-                        addShape(aShape);
-                        console.log(shapes);
-                        // --- SOLID 처리 ---
-                        let ex = new oc.TopExp_Explorer_2(
-                            aShape,
-                            oc.TopAbs_ShapeEnum.TopAbs_SOLID,
-                            oc.TopAbs_ShapeEnum.TopAbs_SHAPE
-                        );
-
-                        while (ex.More()) {
-                            const solid = oc.TopoDS.Solid_1(ex.Current());
-
-                            // OpenCascade Solid → Three.js Mesh 변환
-                            const facelist = await openCascadeHelper.tessellate(solid);
-                            const [vertexArray, normalArray, indexArray] = await openCascadeHelper.joinPrimitives(facelist);
-
-                            const geometry = new THREE.BufferGeometry();
-                            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertexArray), 3));
-                            geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normalArray), 3));
-                            geometry.setIndex(indexArray);
-
-                            const material = new THREE.MeshStandardMaterial({
-                                color: 0xcccccc
-                            });
-                            const mesh = new THREE.Mesh(geometry, material);
-
-                            //mesh.name = getShapeName(solid,shapeTool);
-                            shapeGroup.add(mesh); // Shape 그룹에 Solid Mesh 추가
-
-                            ex.Next();
-                        }
-                        scene.add(shapeGroup); // Scene에 Shape Group 추가
-                        var currentModel = shapeGroup;
-                        currentModel.traverse((children) => {
-                            if (children.isMesh) {
-                                meshUseStore.getState().addMesh(children);
-                            }
-                        });
-
+                    const aRootLabels = new oc.TDF_LabelSequence_1();
+                    shapeTool.GetFreeShapes(aRootLabels);
+                    shapeGroup = new THREE.Object3D();
+                    shapeGroup.name = inputFile.name;
+                    console.log(aRootLabels);
+                    for (let i = aRootLabels.Lower(); i <= aRootLabels.Upper(); i++) {
+                        const label = aRootLabels.Value(i);
+                        
+                        traverse(label);
+                        // const { addShape } = shapeUseStore.getState(); 
+                        // addShape(oc.XCAFDoc_ShapeTool.GetShape_2(label));
                     }
                 } else {
                     console.error("Something in OCCT went wrong trying to read " + inputFile.name);
                 }
-            } finally {
+            } 
+            catch (e)
+            {
+                console.log(e);
+            }
+            finally {
                 oc.FS.unlink("/"+`file.${fileType}`);
             }
 
         });
     };
+    
+    function shapeToScene(aShape, name){
+        // const shapeGroup = new THREE.Object3D();
 
-    // function saveFile(){
-    //   var writer = new openCascade.STEPControl_Writer_1();
-    //   writer.Transfer(, oc.STEPControl_AsIs);
-    //   writer.Write("test.step");
-    // }
 
-    function getShapeName(solid, shapeTool) {
-        // --- 1. C++ 객체 생성 ---
-        // TDF_Label()이 아니라 TDF_Label_1() 일 가능성이 높습니다.
-        const shapeLabel = new oc.TDF_Label();
 
-        // [!!] 오류의 원인: 이 줄의 주석을 해제해야 합니다.
-        const nameAttributeHandle = new oc.Handle_TDataStd_Name_1();
 
-        try {
-            // --- 2. Shape에 해당하는 Label 찾기 ---
-            if (!shapeTool.FindShape_1(solid, shapeLabel, true)) {
-                console.warn("Shape에 해당하는 Label을 찾을 수 없습니다.");
-                return null; // 여기서 return해도 finally가 실행됩니다.
+    
+        const solid = oc.TopoDS.Solid_1(aShape);
+
+
+            
+
+        // OpenCascade Solid → Three.js Mesh 변환
+        const facelist = openCascadeHelper.tessellate(solid);
+        const [vertexArray, normalArray, indexArray] = openCascadeHelper.joinPrimitives(facelist);
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertexArray), 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normalArray), 3));
+        geometry.setIndex(indexArray);
+
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xcccccc
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.name = name;
+        //mesh.name = getShapeName(solid,shapeTool);
+        shapeGroup.add(mesh); // Shape 그룹에 Solid Mesh 추가
+        
+        const {
+            scene
+        } = threeUseStore.getState();
+
+
+        scene.add(shapeGroup); // Scene에 Shape Group 추가
+        var currentModel = shapeGroup;
+        currentModel.traverse((children) => {
+            if (children.isMesh) {
+                meshUseStore.getState().addMesh(children);
             }
+        });
 
-            // --- 3. Label에서 Name 속성 찾기 ---
-            // (GetID()는 oc.TDataStd_Name.GetID()의 반환값을 미리 변수에 저장해둬도 됩니다)
-            if (shapeLabel.FindAttribute_1(oc.TDataStd_Name.GetID(), nameAttributeHandle)) {
-
-                // 4. 속성에서 이름 문자열 변환
-                const nameStr = nameAttributeHandle.Access().Get().ToCString();
-                return nameStr; // 여기서 return해도 finally가 실행됩니다.
-            }
-
-            // 속성을 찾지 못한 경우
-            return null;
-
-        } finally {
-            // --- 5. [매우 중요] 메모리 해제 ---
-            // 함수가 성공하든, 실패하든(return), 에러가 나든
-            // 'finally' 블록은 항상 실행되어 생성된 C++ 객체를 해제합니다.ㄴ
-            if (shapeLabel) {
-                shapeLabel.delete();
-            }
-            if (nameAttributeHandle) {
-                nameAttributeHandle.delete();
-            }
-        }
+        
     }
-
+    
 
     function saveShapeSTEP(filename = "CascadeStudioPart.step") {
 
-        const { shapes, replaceShapes } = shapeUseStore.getState();
 
-        if (!shapes || shapes.IsNull?.()) {
-            console.error("❌ currentShape가 비어있습니다.");
-            return null;
-        }
-
-
-        let axis = new oc.gp_Ax1_2(new oc.gp_Pnt_3(0,0,0), new oc.gp_Dir_4(0,0,1));
-        let angle = Math.PI / 4; // 45도
-
-        let rotation = new oc.gp_Trsf_1();
-        rotation.SetRotation_1(axis, angle);
-
-        let transformer = new oc.BRepBuilderAPI_Transform_2(shapes, rotation, false);
-        replaceShapes(transformer.Shape());
-        console.log(shapes);
-        
         // STEP Writer 생성
-        let writer = new oc.STEPControl_Writer_1();
+        let writer = new oc.STEPCAFControl_Writer_1();
 
-        // currentShape → STEP Writer로 전달
-        const mode = oc.STEPControl_StepModelType.STEPControl_AsIs;
-        const compgraph = false; // 컴포넌트 그래프 저장 안 함
-        const progress = new oc.Message_ProgressRange_1(); // 진행률 객체
 
-        // Shape → STEP writer로 전달
-        let transferResult = writer.Transfer(shapes, oc.STEPControl_StepModelType.STEPControl_ManifoldSolidBrep, true, progress);
+        
+        let transferResult = writer.Perform_2(aDoc,filename , new oc.Message_ProgressRange_1());
         console.log(transferResult);
 
+        const { shapes} = shapeUseStore.getState();
+        const trsf = new oc.gp_Trsf_1();
 
-        if (transferResult !== oc.IFSelect_ReturnStatus.IFSelect_RetDone) {
-            console.error("❌ STEP Writer로 Shape 전달 실패 (Transfer Error)");
-            return null;
-        }
+        const center = new oc.gp_Pnt_3(0, 0, 0);
+        const axis = new oc.gp_Ax1_2(center, new oc.gp_Dir_4(0, 0, 1));
+        trsf.SetRotation_1(axis, Math.PI / 4);
+        const loc = new oc.TopLoc_Location_2(trsf);
 
-        // STEP 파일을 가상 파일 시스템에 쓰기
-        let writeResult = writer.Write(filename);
-        console.log(writeResult);
-        if (writeResult !== oc.IFSelect_ReturnStatus.IFSelect_RetDone) {
-            console.error("❌ STEP 파일 쓰기 실패 (Write Error)");
-            return null;
-        }
+        Object.keys(shapes).forEach((k) => {
+            const label = shapes[k];
+            const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label);
+
+            // 기존 위치 가져오기
+            const currentLoc = shape.Location_1();
+            // 기존 위치에 회전 누적
+            const newLoc = currentLoc.Multiplied(loc);
+
+            // 적용
+            shape.Location_2(newLoc, false);
+
+            // 문서에 반영
+            shapeTool.SetShape(label, shape);
+        });
+   
+           
+        
+
 
         // 파일 내용을 읽고 임시 파일 삭제
-        let stepFileText = oc.FS.readFile("/" + filename, {
-            encoding: "utf8"
+        let stepFileText = oc.FS.readFile("/" + 
+            filename
+            , {encoding: "utf8"
         });
+        console.log(stepFileText);
         oc.FS.unlink("/" + filename);
 
         // STEP 파일 내용 반환
         return stepFileText;
     }
+    
+    function traverse(label) {
+        const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label)
+        
+        console.log("> traverse")
+    
+        switch (shape.ShapeType()) {
+            case oc.TopAbs_ShapeEnum.TopAbs_COMPOUND:
+                console.log("  > compound")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
+                console.log("  > compsolid")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_EDGE:
+                console.log("  > edge")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_FACE:
+                console.log("  > face")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_SHAPE:
+                console.log("  > shape")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_SHELL:
+                console.log("  > shell")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_SOLID:
+                console.log("  > solid")
+
+                var name = new oc.Handle_TDF_Attribute_1();
+                label.FindAttribute_1(oc.TDataStd_Name.GetID(),name);
+                var TCollection_ExtendedString = name.get().Get();
+                const nameString = new oc.TCollection_AsciiString_13(TCollection_ExtendedString, 0);
+
+                const { shapes, addShape } = shapeUseStore.getState();
+                addShape(name,label);
+                console.table(shapes);
+                // const color = new oc.Quantity_Color_1();
+                // colorTool.GetColor_1(label, color)
+                //     console.log(
+                //         color.Red(),
+                //         color.Green(),
+                //         color.Blue()
+                //     );
+     
+
+                shapeToScene(shape, nameString.ToCString());
+
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_VERTEX:
+                console.log("  > vertex")
+                break
+            case oc.TopAbs_ShapeEnum.TopAbs_WIRE:
+                console.log("  > wire")
+                break
+            default:
+                console.log("  > default")
+        }
+    
+        if (oc.XCAFDoc_ShapeTool.IsAssembly(label)) {
+
+            console.log("  > assembly")
+            for (const iterator = new oc.TDF_ChildIterator_2(label, false); iterator.More(); iterator.Next()) {
+                traverse(iterator.Value())
+            }
+        }
 
 
-
-    // const addShapeToScene = async (shape) => {
-    //     const {
-    //         scene
-    //     } = threeUseStore.getState();
+    }
 
 
-    //     openCascadeHelper.setOpenCascade(oc);
-
-
-    //     const facelist = await openCascadeHelper.tessellate(shape);
-    //     console.log(facelist);
-    //     const [locVertexcoord, locNormalcoord, locTriIndices] = await openCascadeHelper.joinPrimitives(facelist);
-    //     const tot_triangle_count = facelist.reduce((a, b) => a + b.number_of_triangles, 0);
-    //     const geometry = await openCascadeHelper.generateGeometry(
-    //         tot_triangle_count,
-    //         locVertexcoord,
-    //         locNormalcoord,
-    //         locTriIndices
-    //     );
-    //     const objectMat = new THREE.MeshStandardMaterial({
-    //         color: new THREE.Color(0.9, 0.9, 0.9),
-    //         flatShading: false // 필요 시 true로 바꾸면 면 단위 음영
-    //     });
-
-    //     // Mesh 생성
-    //     const object = new THREE.Mesh(geometry, objectMat);
-    //     object.name = "shape";
-
-    //     // 기존 코드 동일하게 회전
-    //     object.rotation.x = -Math.PI / 2;
-
-    //     // 장면에 추가
-    //     scene.add(object);
-    //     var currentModel = object;
-    //     console.log(currentModel);
-
-
-    //     //console.log("✅ 모델 로드 완료:", fileUrl);
-    //     // meshStore에 추가
-    //     currentModel.traverse((children) => {
-    //         if (children.isMesh) {
-    //             meshUseStore.getState().addMesh(children);
-    //         }
-    //     });
-    // }
     return {
         loadSTEPorIGES,
         saveShapeSTEP
     };
 }
+
+
+                    // 각 shape 반복
+                    // for (let i = 1; i <= nbs; i++) {
+                    //     const aShape = reader.Shape(i);
+                    //     const shapeGroup = new THREE.Object3D(); // Shape 단위 Group
+                    //     shapeGroup.name = inputFile.name;
+                    //     addShape(aShape);
+                    //     console.log(shapes);
+                    //     // --- SOLID 처리 ---
+                    //     let ex = new oc.TopExp_Explorer_2(
+                    //         aShape,
+                    //         oc.TopAbs_ShapeEnum.TopAbs_SOLID,
+                    //         oc.TopAbs_ShapeEnum.TopAbs_SHAPE
+                    //     );
+
+                    //     while (ex.More()) {
+                    //         const solid = oc.TopoDS.Solid_1(ex.Current());
+
+                    //         // OpenCascade Solid → Three.js Mesh 변환
+                    //         const facelist = await openCascadeHelper.tessellate(solid);
+                    //         const [vertexArray, normalArray, indexArray] = await openCascadeHelper.joinPrimitives(facelist);
+
+                    //         const geometry = new THREE.BufferGeometry();
+                    //         geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertexArray), 3));
+                    //         geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normalArray), 3));
+                    //         geometry.setIndex(indexArray);
+
+                    //         const material = new THREE.MeshStandardMaterial({
+                    //             color: 0xcccccc
+                    //         });
+                    //         const mesh = new THREE.Mesh(geometry, material);
+
+                    //         //mesh.name = getShapeName(solid,shapeTool);
+                    //         shapeGroup.add(mesh); // Shape 그룹에 Solid Mesh 추가
+
+                    //         ex.Next();
+                    //     }
+                    //     scene.add(shapeGroup); // Scene에 Shape Group 추가
+                    //     var currentModel = shapeGroup;
+                    //     currentModel.traverse((children) => {
+                    //         if (children.isMesh) {
+                    //             meshUseStore.getState().addMesh(children);
+                    //         }
+                    //     });
+
+                    // }

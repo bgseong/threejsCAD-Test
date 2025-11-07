@@ -5,6 +5,7 @@ import occFileUtil from './occ/OccFileUtil.js'
 import createSidebar from './Sidebar.js';
 import createViewController from './ViewController.js';
 import createModel from './Model.js';
+import createToolbar from './toolBar.js';
 import { meshUseStore } from './stores/meshStore.js';
 import { threeUseStore } from './stores/threeStore.js';
 
@@ -16,7 +17,7 @@ const {scene, camera, renderer, mouse } = threeUseStore.getState();
 let modelLoader;
 let view, model;
 
-let sidebar;
+let sidebar, toolBar;
 
 modelLoader = await occFileUtil();
 
@@ -31,8 +32,15 @@ async function init() {
   view = createViewController();
   model = createModel();
 
+
   window.addEventListener('resize', onWindowResize);
   sidebar = createSidebar();
+  toolBar = createToolbar();
+
+  
+
+
+
   renderer.domElement.addEventListener('mousemove', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -40,13 +48,11 @@ async function init() {
     raycaster.setFromCamera(mouse, camera);
     
     const intersects = raycaster.intersectObjects(scene.children, true);
-    //console.log(intersects);
-    //console.log(intersects.length > 0 ? intersects[0].object.uuid : null);
-    meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
-    // model.highlightObjects();
-    // sidebar.highlightLiColor();
-  });
 
+    meshUseStore.getState().setHoveredMesh(intersects.length > 0 ? intersects[0].object.uuid : null);
+
+  });
+  renderer.domElement.style.touchAction = "none";
   renderer.domElement.addEventListener("click", () => {
   const {selectedMeshIdx, hoveredMeshIdx, clearSelectedMeshIdxs,selectedMeshIdxs} = meshUseStore.getState();
   if (hoveredMeshIdx) {
@@ -56,13 +62,53 @@ async function init() {
   else{
         meshUseStore.getState().setSelectedMesh(null);
         meshUseStore.getState().clearSelectedMeshIdxs();
-  }
-  });
+  }});
+
+
+
+  window.addEventListener("keydown", (event) => {
+    const {selectedMeshIdx, meshs} = meshUseStore.getState();
+    const {transformChange,transformIs,transformControls} = threeUseStore.getState();
+    switch (event.key) {
+        case 't':
+          if(!transformIs){
+            if(selectedMeshIdx){
+              model.addTransformControl(meshs[selectedMeshIdx]);
+              
+              transformChange();
+            } 
+          }
+          transformControls.setMode('translate');
+          break;
+
+        case 'r':
+          if(!transformIs){
+            if(selectedMeshIdx){
+              model.addTransformControl(meshs[selectedMeshIdx]);
+              transformChange();
+            } 
+          }
+          transformControls.setMode('rotate');
+   
+          break;
+
+        case 's':
+          if(!transformIs){
+            if(selectedMeshIdx){
+              model.addTransformControl(meshs[selectedMeshIdx]);
+              transformChange();
+            } 
+          }
+
+          transformControls.setMode('scale');
+ 
+          break;
+    }});
   // 우클릭 메뉴
   initContextMenu();
 
   initSub();
-
+  toolBar.addButton("Save",saveStep());
 }
 
 function initSub(){
@@ -83,12 +129,13 @@ function initSub(){
 
 
 
+
 function initContextMenu() {
   const contextMenu = document.createElement('div');
   const renderMenu = () => {
     const { meshs, selectedMeshIdxs} = meshUseStore.getState(); // 현재 meshs 가져오기
     const hasMeshes = Object.keys(meshs).length > 0; // 하나라도 있으면 true
-    const hasSelected = selectedMeshIdxs.size > 0; // 하나라도 있으면 true
+    const hasSelected = selectedMeshIdxs.size > 0; // 하나라도 있으면 true`
 
     contextMenu.innerHTML = `
       <ul style="list-style:none;margin:0;padding:4px;">
@@ -119,6 +166,9 @@ function initContextMenu() {
   fileInput.style.display = "none";
   document.body.appendChild(fileInput);
 
+  toolBar.addButton("Import",fileInput.click());
+
+  
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     renderMenu(); // 메뉴 렌더링
@@ -135,19 +185,20 @@ function initContextMenu() {
     if (e.target.id === "openFile") {
       fileInput.click();
     } else if (e.target.id === "saveFile") {
-      var stepFileText = modelLoader.saveShapeSTEP(); // GLB 저장 함수
-      if (stepFileText) {
-      const blob = new Blob([stepFileText], { type: "application/step" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "MyShape.step";
-      a.click();
-      URL.revokeObjectURL(url);
-      console.log("✅ STEP 파일 다운로드 완료: MyShape.step");
-    } else {
-      console.warn("⚠️ STEP 데이터가 비어 있습니다.");
-    }
+      saveStep();
+    //   var stepFileText = modelLoader.saveShapeSTEP(); // GLB 저장 함수
+    //   if (stepFileText) {
+    //   const blob = new Blob([stepFileText], { type: "application/step" });
+    //   const url = URL.createObjectURL(blob);
+    //   const a = document.createElement("a");
+    //   a.href = url;
+    //   a.download = "MyShape.step";
+    //   a.click();
+    //   URL.revokeObjectURL(url);
+    //   console.log("✅ STEP 파일 다운로드 완료: MyShape.step");
+    // } else {
+    //   console.warn("⚠️ STEP 데이터가 비어 있습니다.");
+    // }
     }
     else if(e.target.id === "duplicateMesh"){
       showDuplicatePopup();
@@ -162,6 +213,22 @@ function initContextMenu() {
       sidebar.update();
     }
   });
+}
+
+function saveStep(){
+  var stepFileText = modelLoader.saveShapeSTEP(); // GLB 저장 함수
+      if (stepFileText) {
+      const blob = new Blob([stepFileText], { type: "application/step" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "MyShape.step";
+      a.click();
+      URL.revokeObjectURL(url);
+      console.log("✅ STEP 파일 다운로드 완료: MyShape.step");
+    } else {
+      console.warn("⚠️ STEP 데이터가 비어 있습니다.");
+    }
 }
 
 function showDuplicatePopup() {

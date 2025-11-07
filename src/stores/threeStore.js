@@ -6,7 +6,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 const d = 5;
 const aspect = window.innerWidth / window.innerHeight;
 
-export const threeUseStore = createStore((set) => ({
+export const threeUseStore = createStore((set,get) => ({
     scene: null,
     camera: null,
     renderer: null,
@@ -14,6 +14,7 @@ export const threeUseStore = createStore((set) => ({
     dirLight: null,
     mouse: null,
     transformControls: null,
+    transformIs: false,
 
 
     init: () => {
@@ -34,6 +35,8 @@ export const threeUseStore = createStore((set) => ({
     renderer.domElement.style.left = "0";
     renderer.domElement.style.background = "linear-gradient(180deg, #e0e0e0, #8c8c8c)"; 
     document.body.appendChild(renderer.domElement);
+
+
 
     const camera = new THREE.OrthographicCamera(
       -d * aspect,
@@ -73,8 +76,14 @@ export const threeUseStore = createStore((set) => ({
 
 
 
-
     set({ scene, camera, renderer, hemiLight, dirLight , mouse, transformControls});
+  },
+
+  transformChange: () => {
+    const { transformIs } = get();
+    set({ transformIs: !transformIs });
+    
+    console.log("transform :" ,transformIs );
   },
 
 }));
