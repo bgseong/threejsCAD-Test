@@ -124,13 +124,12 @@ export default async function occFileUtil() {
                     shapeTool.GetFreeShapes(aRootLabels);
                     shapeGroup = new THREE.Object3D();
                     shapeGroup.name = inputFile.name;
-                    console.log(aRootLabels);
+                    //console.log(aRootLabels);
                     for (let i = aRootLabels.Lower(); i <= aRootLabels.Upper(); i++) {
+                        console.log(i);
                         const label = aRootLabels.Value(i);
-                        
+
                         traverse(label);
-                        // const { addShape } = shapeUseStore.getState(); 
-                        // addShape(oc.XCAFDoc_ShapeTool.GetShape_2(label));
                     }
                 } else {
                     console.error("Something in OCCT went wrong trying to read " + inputFile.name);
@@ -148,18 +147,7 @@ export default async function occFileUtil() {
     };
     
     function shapeToScene(aShape, name){
-        // const shapeGroup = new THREE.Object3D();
-
-
-
-
-    
         const solid = oc.TopoDS.Solid_1(aShape);
-
-
-            
-
-        // OpenCascade Solid → Three.js Mesh 변환
         const facelist = openCascadeHelper.tessellate(solid);
         const [vertexArray, normalArray, indexArray] = openCascadeHelper.joinPrimitives(facelist);
 
@@ -183,6 +171,7 @@ export default async function occFileUtil() {
 
         scene.add(shapeGroup); // Scene에 Shape Group 추가
         var currentModel = shapeGroup;
+        scaleStepModelToMeter(currentModel)
         currentModel.traverse((children) => {
             if (children.isMesh) {
                 meshUseStore.getState().addMesh(children);
@@ -244,72 +233,108 @@ export default async function occFileUtil() {
         return stepFileText;
     }
     
-    function traverse(label) {
-        const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label)
+    // function traverse(label, depth = 0) {
+    //     const indent = '  '.repeat(depth); // 깊이만큼 들여쓰기
+    //     const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label);
         
-        console.log("> traverse")
-    
-        switch (shape.ShapeType()) {
-            case oc.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                console.log("  > compound")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                console.log("  > compsolid")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_EDGE:
-                console.log("  > edge")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_FACE:
-                console.log("  > face")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_SHAPE:
-                console.log("  > shape")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_SHELL:
-                console.log("  > shell")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_SOLID:
-                console.log("  > solid")
+    //     console.log(`${indent}> traverse (depth=${depth})`);
 
-                var name = new oc.Handle_TDF_Attribute_1();
-                label.FindAttribute_1(oc.TDataStd_Name.GetID(),name);
-                var TCollection_ExtendedString = name.get().Get();
-                const nameString = new oc.TCollection_AsciiString_13(TCollection_ExtendedString, 0);
+    //     switch (shape.ShapeType()) {
+    //         case oc.TopAbs_ShapeEnum.TopAbs_COMPOUND:
+    //             console.log(`${indent}  > compound`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
+    //             console.log(`${indent}  > compsolid`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_EDGE:
+    //             console.log(`${indent}  > edge`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_FACE:
+    //             console.log(`${indent}  > face`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_SHAPE:
+    //             console.log(`${indent}  > shape`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_SHELL:
+    //             console.log(`${indent}  > shell`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_SOLID:
+    //             console.log(`${indent}  > solid`);
 
-                const { shapes, addShape } = shapeUseStore.getState();
-                addShape(name,label);
-                console.table(shapes);
-                // const color = new oc.Quantity_Color_1();
-                // colorTool.GetColor_1(label, color)
-                //     console.log(
-                //         color.Red(),
-                //         color.Green(),
-                //         color.Blue()
-                //     );
-     
+    //             var nameHandle = new oc.Handle_TDF_Attribute_1();
+    //             label.FindAttribute_1(oc.TDataStd_Name.GetID(), nameHandle);
+    //             var extStr = nameHandle.get().Get();
+    //             const nameString = new oc.TCollection_AsciiString_13(extStr, 0);
 
-                shapeToScene(shape, nameString.ToCString());
+    //             const { shapes, addShape } = shapeUseStore.getState();
+    //             addShape(nameString.ToCString(), label);
+    //             console.table(shapes);
 
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                console.log("  > vertex")
-                break
-            case oc.TopAbs_ShapeEnum.TopAbs_WIRE:
-                console.log("  > wire")
-                break
-            default:
-                console.log("  > default")
+    //             shapeToScene(shape, nameString.ToCString());
+
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_VERTEX:
+    //             console.log(`${indent}  > vertex`);
+    //             break;
+    //         case oc.TopAbs_ShapeEnum.TopAbs_WIRE:
+    //             console.log(`${indent}  > wire`);
+    //             break;
+    //         default:
+    //             console.log(`${indent}  > default`);
+    //     }
+
+    //     const iterator = new oc.TDF_AttributeIterator_2(label, true);
+    //     console.log(iterator.More());
+    //     while (iterator.More()) {
+    //         console.log(iterator.More());
+    //         const childLabel = iterator.Value();
+    //         const childShape = oc.XCAFDoc_ShapeTool.GetShape_2(childLabel);
+    //         const childType = childShape.ShapeType();
+
+    //         console.log(`${indent}  childType=${childType} (depth=${depth + 1})`);
+
+    //         if (
+    //             childType === oc.TopAbs_ShapeEnum.TopAbs_SOLID
+    //         ) {
+    //             traverse(childLabel, depth + 1);
+    //         }
+
+    //         iterator.Next();
+    //     }
+    // }
+    function check(label) {
+            const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label);
+            const type = shape.ShapeType();
+            console.log(type);
+    }
+
+    function traverse(label, depth = 0) {
+        const shape = oc.XCAFDoc_ShapeTool.GetShape_2(label);
+        const ex = new oc.TopExp_Explorer_1();
+        ex.Init(shape,  oc.TopAbs_ShapeEnum.TopAbs_SOLID, oc.TopAbs_ShapeEnum.TopAbs_SHAPE);
+        while (ex.More()) {
+            const currentShape = ex.Current();
+            const currentLabel = shapeTool.FindShape_2(currentShape,false);
+
+            var nameHandle = new oc.Handle_TDF_Attribute_1();
+            currentLabel.FindAttribute_1(oc.TDataStd_Name.GetID(), nameHandle);
+            var extStr = nameHandle.get().Get();
+            const nameString = new oc.TCollection_AsciiString_13(extStr, 0);
+
+            const { shapes, addShape } = shapeUseStore.getState();
+            addShape(nameString.ToCString(), currentLabel);
+            //console.table(shapes);
+
+            shapeToScene(currentShape, nameString.ToCString());
+
+            ex.Next();
         }
-    
-        if (oc.XCAFDoc_ShapeTool.IsAssembly(label)) {
+    }
+    function scaleStepModelToMeter(model) {
+        const mmToMeterScale = 0.001; // 1mm → 0.001m
+        model.scale.setScalar(mmToMeterScale);
 
-            console.log("  > assembly")
-            for (const iterator = new oc.TDF_ChildIterator_2(label, false); iterator.More(); iterator.Next()) {
-                traverse(iterator.Value())
-            }
-        }
-
-
+        console.log(`📐 STEP 모델 스케일 적용: x${mmToMeterScale}`);
     }
 
 

@@ -1,37 +1,106 @@
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { threeUseStore } from "./stores/threeStore.js";
 import { meshUseStore } from "./stores/meshStore.js";
+import { statusUseStore } from "./stores/statusStore.js"
 import * as THREE from 'three';
 import gsap from "gsap";
+import { pass } from "three/tsl";
+import CameraControls from 'camera-controls';
+const clock = new THREE.Clock();
+
 
 export default function createViewController() {
-  const { scene, camera, renderer, transformControls } = threeUseStore.getState();
-  const direction = new THREE.Vector3()
-  const controls = new OrbitControls(camera, renderer.domElement);
+  const { scene, camera, renderer, transformControls, controls } = threeUseStore.getState();
+  
+  setupControl();
 
-  // OrbitControls 기본 세팅
   function setupControl() {
-    controls.enableDamping = false;
-    controls.enableZoom = true;
-    controls.zoomToCursor = true;
-    controls.screenSpacePanning = true;
-    
-    
+    // 커서 기준으로 줌
+    controls.dollyToCursor = true;
+
+    // dolly(줌) 속도 줄이기 (기본값은 1.0)
+    controls.dollySpeed = 0.5;
+    controls.maxDistance = 5000;  
+
+    // 각도 제한 (조금 널널하게)
+    controls.minPolarAngle = 0;           // 위쪽 제한 거의 없음
+    controls.maxPolarAngle = Math.PI;     // 아래쪽도 넉넉하게
+    controls.minAzimuthAngle = -Infinity; // 좌우 회전 제한 없음
+    controls.maxAzimuthAngle = Infinity;
+    controls.rotationSpeed = 0.3; 
+    // 카메라 이동 허용 (truck / pan)
+    controls.truckSpeed = 0.5; // 기본 속도. 줄이면 더 천천히 움직임
+    // controls.mouseButtons.left = CameraControls.ACTION.ROTATE;
+    // controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;
+    // controls.mouseButtons.wheel = CameraControls.ACTION.DOLLY;
+    controls.mouseButtons.left = CameraControls.ACTION.NONE;
+    controls.mouseButtons.middle = CameraControls.ACTION.NONE;
+    controls.mouseButtons.right = CameraControls.ACTION.NONE;
     transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value; // 드래그 중이면 orbit 비활성화, 끝나면 다시 활성화
   });
-  controls.mouseButtons = {
-  LEFT: THREE.MOUSE.ROTATE,  // 회전
-  MIDDLE: THREE.MOUSE.DOLLY | THREE.MOUSE.ROTATE,// 줌
-  RIGHT: THREE.MOUSE.PAN,    // 패닝
-};
 
-// ✅ TransformControls 조작을 Middle(휠 클릭)로 바꾸기
-transformControls.mouseButtons.TRANSFORM = THREE.MOUSE.MIDDLE;
+    
+
+    const keyState = {
+      shift  : false,
+      control: false
+    };
+
+    const mouseState = {
+      middlePressed: false,
+      left: false,
+    };
+
+    const updateConfig = () => {
+        
+
+        // 휠 버튼을 누른 상태일 때
+      if (keyState.shift) {
+        controls.mouseButtons.middle = CameraControls.ACTION.ROTATE; // Shift + 휠 = 회전
+      } else {
+        controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;  // 그냥 휠 = 트럭
+      }
+     
+    };
+
+    // 키 이벤트
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') keyState.shift = true;
+      if (event.code === 'ControlLeft' || event.code === 'ControlRight') keyState.control = true;
+      updateConfig();
+    });
+
+    document.addEventListener('keyup', (event) => {
+      if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') keyState.shift = false;
+      if (event.code === 'ControlLeft' || event.code === 'ControlRight') keyState.control = false;
+      updateConfig();
+    });
+
+    // 마우스 이벤트
+    document.addEventListener('mousedown', (event) => {
+      if (event.button === 1) { // 휠 버튼
+        mouseState.middlePressed = true;
+        updateConfig();
+      }
+      if (event.button === 0) { // 휠 버튼
+        mouseState.left = true;
+      }
+    });
+
+    document.addEventListener('mouseup', (event) => {
+      if (event.button === 1) {
+        mouseState.middlePressed = false;
+        updateConfig();
+      }
+      if (event.button === 0) {
+        mouseState.left = false;
+      }
+    });
 
   }
 
-  setupControl();
+  
 
   // 툴바 UI 생성
 function createToolbar() {
@@ -194,52 +263,35 @@ function createToolbar() {
 
   // 외부 API 노출
   return {
-    controlUpdate: () => {
-      const {meshs, selectedMeshIdxs} = meshUseStore.getState();
-        //console.log(selectedMeshIdxs);
-            if (selectedMeshIdxs.size) {
-                // 중심점 계산용 Vector3
-                // const center = new THREE.Vector3();
+    setControlTarget: (sets) =>{
+      let length = sets.size;
+      if(length !== 0){
+        const {meshs} = meshUseStore.getState();
+        const center = new THREE.Vector3(0,0,0);
+        sets.forEach(idx => {
 
-                // // 모든 선택된 mesh들의 월드 좌표를 더함
-                // selectedMeshIdxs.forEach(idx => {
-                //   console.log(meshs[idx]);
-                //   const worldPos = new THREE.Vector3();
-                //   meshs[idx].getWorldPosition(worldPos);
-                //   center.add(worldPos);
-                //   console.log(worldPos);
-                // });
+          var center = new THREE.Vector3();
+          mesh.geometry.computeBoundingBox();
+          mesh.geometry.boundingBox.getCenter(center);
+          mesh.geometry.center();
+          mesh.position.copy(center);
 
-                // // 평균을 내서 중심점 계산
-                // center.divideScalar(selectedMeshIdxs);
-
-                // // OrbitControls의 타겟을 이 중심점으로 설정
-                // controls.target.copy(center);
-
-                // // 컨트롤러 갱신
-                // controls.update();
-                // console.log(center);
-              }
-              else{
-                camera.getWorldDirection(direction);
-
-                // 카메라 위치 + 바라보는 방향 * 거리
-                const distance = 10; // 원하는 거리 (예: 카메라 앞쪽 10단위)
-                const targetPosition = camera.position.clone().add(direction.multiplyScalar(distance));
-
-                // 화면의 중앙을 회전 중심으로
-                controls.target.copy(targetPosition);
-                
-                controls.update()
-                //console.log(targetPosition);
-                // console.log(targetPosition);
-              }
+          const worldPos = new THREE.Vector3();
+          meshs[idx].getWorldPosition(worldPos);
+          center.add(worldPos);
+        });
+        center.divideScalar(length);
+        console.log(center);
+        controls.setOrbitPoint(center.x, center.y, center.z, false);
+      }
       
-    
-    
     },
 
-  
+    controlUpdate: () => {
+      const delta = clock.getDelta();
+      controls.update(delta);
+    },
+
     getControls: () => controls,
   };
 }

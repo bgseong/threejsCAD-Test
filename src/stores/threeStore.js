@@ -2,9 +2,36 @@ import { createStore } from 'zustand/vanilla';
 import * as THREE from 'three';
 
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import CameraControls from 'camera-controls';
 
-const d = 5;
-const aspect = window.innerWidth / window.innerHeight;
+import {
+	Vector2,
+	Vector3,
+	Vector4,
+	Quaternion,
+	Matrix4,
+	Spherical,
+	Box3,
+	Sphere,
+	Raycaster,
+} from 'three';
+
+const subsetOfTHREE = {
+	Vector2   : Vector2,
+	Vector3   : Vector3,
+	Vector4   : Vector4,
+	Quaternion: Quaternion,
+	Matrix4   : Matrix4,
+	Spherical : Spherical,
+	Box3      : Box3,
+	Sphere    : Sphere,
+	Raycaster : Raycaster,
+};
+
+CameraControls.install( { THREE: subsetOfTHREE } );
+
+const width = window.innerWidth;
+const height = window.innerHeight;
 
 export const threeUseStore = createStore((set,get) => ({
     scene: null,
@@ -15,11 +42,10 @@ export const threeUseStore = createStore((set,get) => ({
     mouse: null,
     transformControls: null,
     transformIs: false,
+    controls: null,
 
 
     init: () => {
-    const aspect = window.innerWidth / window.innerHeight;
-    const d = 10;
 
     const scene = new THREE.Scene();
     
@@ -38,26 +64,29 @@ export const threeUseStore = createStore((set,get) => ({
 
 
 
+
+    const viewHeight = 3; // 화면에 보이는 높이 3m
+    const aspect = width / height;
+    const viewWidth = viewHeight * aspect;
+
     const camera = new THREE.OrthographicCamera(
-      -d * aspect,
-      d * aspect,
-      d,
-      -d,
-      0.05,
-      1000000
+      -viewWidth / 2,
+      viewWidth / 2,
+      viewHeight / 2,
+      -viewHeight / 2,
+      0.1,
+      1000
     );
-    camera.near = -3000
-    camera.far = 3000
-    camera.updateProjectionMatrix();
-    
-    camera.position.set(10, 10, 10);
+
+    camera.position.set(0, 0, 200); // 충분히 멀리
     camera.lookAt(0, 0, 0);
-    camera.position.setZ(300)
+
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     hemiLight.position.set(0, 20, 0);
 
-    // const axes = new THREE.AxesHelper(5);
-    // scene.add(axes);
+    //const gridHelper = new THREE.GridHelper( 1000, 1000 );
+    //scene.add( gridHelper );
+
     scene.add(hemiLight);
 
 
@@ -75,8 +104,8 @@ export const threeUseStore = createStore((set,get) => ({
     const transformControls = new TransformControls(camera, renderer.domElement);
 
 
-
-    set({ scene, camera, renderer, hemiLight, dirLight , mouse, transformControls});
+    const controls = new CameraControls(camera, renderer.domElement);
+    set({ scene, camera, renderer, hemiLight, dirLight , mouse, transformControls, controls});
   },
 
   transformChange: () => {

@@ -42,8 +42,9 @@ async function init() {
 
 
   renderer.domElement.addEventListener('mousemove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    const mousePos = getNormalizedMouseCoords(e, renderer);
+    mouse.x = mousePos.x;
+    mouse.y = mousePos.y;
     
     raycaster.setFromCamera(mouse, camera);
     
@@ -54,15 +55,22 @@ async function init() {
   });
   renderer.domElement.style.touchAction = "none";
   renderer.domElement.addEventListener("click", () => {
-  const {selectedMeshIdx, hoveredMeshIdx, clearSelectedMeshIdxs,selectedMeshIdxs} = meshUseStore.getState();
-  if (hoveredMeshIdx) {
-    meshUseStore.getState().setSelectedMesh(hoveredMeshIdx);
-    console.log(hoveredMeshIdx);
-  }
-  else{
-        meshUseStore.getState().setSelectedMesh(null);
-        meshUseStore.getState().clearSelectedMeshIdxs();
-  }});
+
+
+    const {selectedMeshIdx, hoveredMeshIdx, meshs,selectedMeshIdxs} = meshUseStore.getState();
+    if (hoveredMeshIdx) {
+      meshUseStore.getState().setSelectedMesh(hoveredMeshIdx);
+      console.log(hoveredMeshIdx);
+    }
+    else{
+      
+          meshUseStore.getState().setSelectedMesh(null);
+          meshUseStore.getState().clearSelectedMeshIdxs();
+    }
+
+  //saveToUrl(meshs);
+
+});
 
 
 
@@ -108,7 +116,7 @@ async function init() {
   initContextMenu();
 
   initSub();
-  toolBar.addButton("Save",saveStep());
+
 }
 
 function initSub(){
@@ -117,17 +125,29 @@ function initSub(){
   (hoveredMeshIdx) => {
     model.highlightObjects();
     sidebar.highlightLiColor();
+    
   });
-
-    meshUseStore.subscribe(
+  
+  meshUseStore.subscribe(
   (state) => state.selectedMeshIdx,  // 관찰할 상태
   (current, previous) => {
     model.selectMesh(current);
     sidebar.selectLiMesh(current,previous);
   });
+
+  meshUseStore.subscribe(
+  (state) => state.selectedMeshIdxs,  // 관찰할 상태
+  (current) => {
+    view.setControlTarget(current);
+  });
 }
 
 
+
+function saveToUrl(object){
+  let save = btoa(JSON.stringify(object));
+  window.history.pushState({},null, '?mesh='+ save);
+}
 
 
 function initContextMenu() {
@@ -281,7 +301,14 @@ function animate() {
 }
 
 
+function getNormalizedMouseCoords(event, renderer) {
+  const rect = renderer.domElement.getBoundingClientRect();
 
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  };
+}
 
 
 function onWindowResize() {
